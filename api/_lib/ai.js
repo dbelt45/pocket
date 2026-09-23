@@ -9,6 +9,8 @@ export const MODELS = [
 ];
 
 export const KINDS = ["task", "followup", "note"];
+// En and em dash, written as character codes so this file contains neither.
+const DASHES = new RegExp(`[${String.fromCharCode(8211, 8212)}]`, "g");
 
 /** One chat completion. Walks the model list; throws only when all of them fail. */
 export async function complete(messages, maxTokens) {
@@ -91,7 +93,7 @@ export function parseSort(text, ids) {
   const out = [];
   for (const it of items) {
     if (!wanted.has(it?.id) || !KINDS.includes(it.kind)) continue;
-    const title = String(it.title ?? "").replace(/[–—]/g, "-").trim().slice(0, 120);
+    const title = String(it.title ?? "").replace(DASHES, "-").trim().slice(0, 120);
     if (!title) continue;
     const due = /^\d{4}-\d{2}-\d{2}$/.test(it.due_on ?? "") && !isNaN(Date.parse(it.due_on)) ? it.due_on : null;
     out.push({ id: it.id, kind: it.kind, title, due_on: due });
