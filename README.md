@@ -13,7 +13,7 @@ idea to the Thoughts tab, where the AI says whether it is realistic and how to s
 
 Project 2 of Daniel Belt's 14-day AI Build Curriculum (Day 3).
 
-Live: _add the Vercel URL here once deployed_
+Live: https://pocket-nine-coral.vercel.app
 
 ## What it does, mapped to the Day 3 checklist
 
