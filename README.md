@@ -32,6 +32,7 @@ Live: https://pocket-nine-coral.vercel.app
 
 | Piece | Choice | Why |
 |---|---|---|
+| Look | Turnkey Services brand: black and white, Plus Jakarta Sans (saved in the app so it works offline), TK mark icon |
 | Front end | One HTML page, one JS file, no framework | A small app. No build step means the service worker caches exact, known files |
 | Server | Vercel functions in `api/` | Holds the secrets (AI key, Google secret, push key) away from the phone |
 | Database + login | The same Supabase project as Daniel OS | One login for both apps; a task from Pocket shows up in Daniel OS |
@@ -55,8 +56,14 @@ Live: https://pocket-nine-coral.vercel.app
 How it is built (`api/_lib/jarvis.js`):
 - **"I have a thought" and "yes" are matched by plain patterns, not AI**, so they always
   work and cost nothing. Tested in `npm test`.
-- Everything else goes to the AI with a fixed list of nine actions. It can only do what is
-  on that list, and the server runs each action, scoped to your own rows.
+- **Plain questions are answered by code, not AI** (day, calendar, tasks, follow-ups,
+  notes, thoughts): about half a second. Anything that changes something always goes to
+  the AI; `npm test` checks that no write can take the shortcut.
+- Everything else goes to the AI with a fixed list of nine actions and the open tasks in
+  the prompt, so most commands take one AI call. It can only do what is on that list, and
+  the server runs each action, scoped to your own rows.
+- **Speed is measured, not guessed.** `npm run bench` (live, local, models, real) and the
+  `jarvis-tune` skill in `.claude/skills/`. Results: `docs/jarvis-speed-log.md`.
 - **Deletes always ask first.** The question and the item are remembered for two minutes
   in `jarvis_state`, so the next sentence is read as the answer. Anything but a yes
   cancels it.
@@ -127,8 +134,8 @@ of notifications, so each phone taps "Turn on morning reminder" again.
 - **iPhone can clear an installed web app's storage** if it goes unused for weeks.
   Anything already synced is safe in the database; only unsent notes would be lost.
 - Deleting a capture that became a task leaves the task in Daniel OS on purpose.
-- **Jarvis waits on the AI.** A command takes about 2 to 10 seconds; a thought with feedback
-  about 20. Each command uses one to three of the 50 free daily requests.
+- **Commands that change something wait on the AI**, usually one call. Questions do not.
+  Thought feedback appears in the app about 20 seconds after Jarvis answers.
 - **Listening inside the installed app depends on iOS.** If the phone's browser does not
   offer speech recognition there, the Jarvis box falls back to typing or the keyboard mic.
   Siri always works.

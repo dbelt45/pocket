@@ -334,7 +334,7 @@ async function loadStats() {
     sb.from("captures").select("id", { count: "exact", head: true }).gte("captured_at", since),
     sb.from("events").select("id", { count: "exact", head: true }).eq("name", "pocket:open").gte("created_at", since),
   ]);
-  if (!c.error && !o.error) $("#stats").textContent = `Last 7 days: ${c.count} captures, ${o.count} opens.`;
+  if (!c.error && !o.error) $("#stats").textContent = `Last 7 days: ${c.count} capture${c.count === 1 ? "" : "s"}, ${o.count} open${o.count === 1 ? "" : "s"}.`;
 }
 
 function msg(t) { $("#msg").textContent = t; }

@@ -1,33 +1,40 @@
 [hidden] { display: none !important; }
-/* Mobile first. Light, warm, big tap targets. System font so nothing downloads. */
+/* Turnkey Services brand: monochrome, dark first, Plus Jakarta Sans.
+   Palette from TK Brand Files/TURNKEY_BRAND_STYLE_GUIDE.md (01, Turnkey Services):
+   #0A0A0A dark, #FFFFFF white, #3D3D3D mid gray, #BDBDBD light gray, #F4F4F4 off white.
+   The brand has no accent color, so kinds are told apart by shade and label.
+   Red is the one color outside the palette, kept for warnings (offline, overdue).
+   Card #1C1C1C is the dark card gray the Turnkey family shares (see TK CFO). */
+@font-face { font-family: "Plus Jakarta Sans"; font-weight: 400 700; font-display: swap;
+  src: url("/fonts/plus-jakarta-sans.woff2") format("woff2"); }
 :root {
-  --bg: #f6f3ec; --card: #fffdf8; --ink: #1d2320; --muted: #6b716d; --line: #e4dfd3;
-  --accent: #0f6b5c; --task: #0f6b5c; --followup: #b0640c; --note: #5b5f97; --late: #b3261e;
-}
-@media (prefers-color-scheme: dark) {
-  :root { --bg: #151816; --card: #1e2220; --ink: #ecebe6; --muted: #9aa09c; --line: #2d3330;
-          --accent: #4fc2ad; --task: #4fc2ad; --followup: #e5a14f; --note: #a3a7e0; --late: #f2867e; }
+  color-scheme: dark;
+  --bg: #0A0A0A; --card: #1C1C1C; --ink: #FFFFFF; --muted: #BDBDBD; --line: #3D3D3D;
+  --accent: #FFFFFF; --on-accent: #0A0A0A; --soft: #F4F4F4;
+  --task: #FFFFFF; --followup: #BDBDBD; --note: #3D3D3D; --thought: #F4F4F4;
+  --ok: #FFFFFF; --late: #FF5A4E; /* the one non-brand color: warnings only */
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--bg); color: var(--ink);
-  font: 16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 16px/1.45 "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
 main { max-width: 640px; margin: 0 auto; padding: 0 16px 48px; }
 .top { max-width: 640px; margin: 0 auto; padding: 14px 16px 8px; display: flex; align-items: center; justify-content: space-between; }
-h1 { font-size: 22px; margin: 0; letter-spacing: -0.02em; }
+h1 { font-size: 22px; margin: 0; letter-spacing: -0.02em; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+h1 img { width: 30px; height: 30px; border-radius: 7px; }
 .pill { font-size: 12px; padding: 4px 10px; border-radius: 99px; background: var(--line); color: var(--muted); }
-.pill.ok { color: var(--accent); } .pill.off { background: var(--late); color: #fff; }
+.pill.ok { color: var(--ok); } .pill.off { background: var(--late); color: #fff; }
 .muted { color: var(--muted); font-size: 14px; } .warn { color: var(--late); font-size: 14px; margin: 0; }
 .lead { font-size: 17px; }
-.banner { background: var(--card); border: 1px dashed var(--accent); border-radius: 12px; padding: 10px 12px; font-size: 14px; margin-bottom: 12px; }
+.banner { background: var(--card); border: 1px dashed var(--line); border-radius: 12px; padding: 10px 12px; font-size: 14px; margin-bottom: 12px; }
 
 input, textarea { width: 100%; font: inherit; font-size: 17px; /* 16px+ stops iOS zooming in */
   color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
 textarea { resize: vertical; min-height: 88px; }
 input:focus, textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
 button { font: inherit; font-weight: 600; border: 0; border-radius: 12px; padding: 12px 16px; min-height: 44px;
-  background: var(--accent); color: #fff; cursor: pointer; }
+  background: var(--accent); color: var(--on-accent); cursor: pointer; }
 button.secondary { background: var(--card); color: var(--accent); border: 1px solid var(--line); }
 button.link { background: none; color: var(--muted); padding: 8px; min-height: 0; font-weight: 500; }
 form { display: grid; gap: 8px; margin-bottom: 12px; }
@@ -60,8 +67,8 @@ form { display: grid; gap: 8px; margin-bottom: 12px; }
 
 /* Jarvis */
 .fab { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 5;
-  border-radius: 99px; padding: 14px 22px; min-height: 52px; box-shadow: 0 6px 20px rgba(0,0,0,.18); }
-.sheet { position: fixed; inset: 0; z-index: 10; background: rgba(0,0,0,.35); display: flex; align-items: flex-end; }
+  border-radius: 99px; padding: 14px 22px; min-height: 52px; box-shadow: 0 0 24px rgba(255,255,255,.18); }
+.sheet { position: fixed; inset: 0; z-index: 10; background: rgba(0,0,0,.6); display: flex; align-items: flex-end; }
 .sheet[hidden] { display: none; }
 .sheet-inner { width: 100%; max-width: 640px; margin: 0 auto; background: var(--card); border-radius: 18px 18px 0 0;
   padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); display: grid; gap: 10px; }
@@ -72,13 +79,13 @@ form.inline { grid-template-columns: 1fr auto; margin: 0; }
 main { padding-bottom: 96px; }
 
 /* Thoughts */
-.list li.thought { border-left-color: #b8860b; }
-.thought .kind { color: #b8860b; }
+.list li.thought { border-left-color: var(--thought); border-left-style: dashed; }
+.thought .kind { color: var(--thought); }
 .fb { margin-top: 8px; padding: 10px; border-radius: 10px; background: var(--bg); font-size: 14px; }
 .fb p { margin: 4px 0; } .fb ol { margin: 4px 0 0; padding-left: 20px; }
 .fb .h { font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-top: 8px; }
-.verdict { display: inline-block; font-weight: 700; font-size: 12px; padding: 2px 8px; border-radius: 6px; color: #fff; background: var(--accent); }
-.verdict.stretch { background: var(--followup); } .verdict.not-yet { background: var(--late); }
+.verdict { display: inline-block; font-weight: 700; font-size: 12px; padding: 2px 8px; border-radius: 6px; color: var(--on-accent); background: var(--accent); }
+.verdict.stretch { background: var(--line); color: var(--ink); } .verdict.not-yet { background: var(--late); color: #fff; }
 .key { font-family: ui-monospace, monospace; font-size: 13px; word-break: break-all; background: var(--bg); padding: 8px; border-radius: 8px; }
 .banner ol { padding-left: 20px; margin: 6px 0; } .banner li { margin: 4px 0; }
 .list .fb li { background: none; border: 0; border-radius: 0; padding: 2px 0; }

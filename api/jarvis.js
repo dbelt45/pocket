@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { asUser, asAdmin, unauthorized } from "./_lib/supabase.js";
+import { waitUntil } from "@vercel/functions";
 import { handle } from "./_lib/jarvis.js";
 
 // POST /api/jarvis  { "text": "what's on my calendar today" }
@@ -31,11 +32,14 @@ export default async function handler(req, res) {
 
   const text = typeof req.body === "string" ? JSON.parse(req.body || "{}").text : req.body?.text;
   const reply = await handle(who.supabase, who.userId, text);
+  res.status(200).json({ ok: !reply.error, say: reply.say, ...(reply.listen ? { listen: reply.listen } : {}), timing: reply.timing });
 
-  // Analytics: which way in, which actions ran. The words themselves are not logged here.
-  await who.supabase.from("events").insert({
+  // After the answer is on its way: thought feedback, and analytics (which way
+  // in, which actions, how long). The words themselves are not logged here.
+  if (reply.later) waitUntil(reply.later);
+  waitUntil(Promise.resolve(who.supabase.from("events").insert({
     user_id: who.userId, kind: "action", name: "pocket:jarvis", path: "/api/jarvis",
-    meta: { app: "pocket", source: who.source, actions: reply.used ?? [], listen: !!reply.listen, failed: !!reply.error },
-  });
-  res.status(200).json({ ok: !reply.error, say: reply.say, ...(reply.listen ? { listen: reply.listen } : {}) });
+    meta: { app: "pocket", source: who.source, actions: reply.used ?? [], listen: !!reply.listen, failed: !!reply.error,
+      path: reply.timing?.path, ms: reply.timing?.ms, ai_ms: (reply.timing?.ai ?? []).map((a) => a.ms) },
+  })));
 }

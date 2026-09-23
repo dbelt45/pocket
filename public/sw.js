@@ -4,17 +4,18 @@
 // 1. OFFLINE. It keeps a copy of the app's own files (the "shell") so Pocket
 //    opens with no signal. Those are the only files cached, and only those:
 //    the page, its script, its styles, the database library, the manifest and
-//    the icons. Everything under /api is personal, changing data, so it is
+//    the icons, and the brand font. Everything under /api is personal, changing data, so it is
 //    NEVER cached here; the app keeps its own last-known copy instead and labels
 //    it "saved copy" so stale data is never passed off as fresh.
 //
 // 2. NOTIFICATIONS. It receives the morning push and shows it, even when
 //    Pocket is closed.
 
-const VERSION = "pocket-v7"; // bump to force every phone to take a fresh copy
+const VERSION = "pocket-v8"; // bump to force every phone to take a fresh copy
 const SHELL = [
   "/", "/app.js", "/styles.css", "/vendor/supabase.js", "/manifest.webmanifest",
   "/icons/icon-192.png", "/icons/icon-512.png", "/icons/apple-touch-icon.png",
+  "/icons/tk-mark.png", "/fonts/plus-jakarta-sans.woff2",
 ];
 
 self.addEventListener("install", (e) => {

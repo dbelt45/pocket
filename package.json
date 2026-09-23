@@ -7,10 +7,12 @@
     "dev": "node --env-file=.env.local scripts/dev.mjs",
     "check": "node --env-file=.env.local scripts/check.mjs",
     "test": "node scripts/test.mjs",
-    "thoughts": "node --env-file=.env.local scripts/thoughts.mjs"
+    "thoughts": "node --env-file=.env.local scripts/thoughts.mjs",
+    "bench": "node --env-file=.env.local scripts/jarvis-bench.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
+    "@vercel/functions": "^3.9.9",
     "web-push": "^3.6.7"
   }
 }

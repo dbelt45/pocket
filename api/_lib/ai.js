@@ -8,6 +8,16 @@ export const MODELS = [
   "google/gemma-4-31b-it:free",
 ];
 
+// Jarvis's own order, fastest accurate first, picked with `npm run bench -- models`
+// (docs/jarvis-speed-log.md). Jarvis waits on these while Daniel stands there, so
+// speed matters most here. Fallbacks come from other providers, so one outage
+// does not take Jarvis down. Sorting and thought feedback keep MODELS.
+export const JARVIS_MODELS = [
+  "inclusionai/ling-3.0-flash-fin:free",     // 0.8s median, 18/18 right on 2026-09-23
+  "inclusionai/ling-3.0-flash-sante:free",   // 1.0s, 17/18
+  "nvidia/nemotron-3-super-120b-a12b:free",  // slower, different provider
+];
+
 export const KINDS = ["task", "followup", "note"];
 // En and em dash, written as character codes so this file contains neither.
 const DASHES = new RegExp(`[${String.fromCharCode(8211, 8212)}]`, "g");
@@ -16,10 +26,11 @@ const DASHES = new RegExp(`[${String.fromCharCode(8211, 8212)}]`, "g");
  * One chat completion. Walks the model list; throws only when all of them fail.
  * Returns the model's whole message, which holds either text or tool calls.
  */
-export async function complete(messages, { maxTokens, tools } = {}) {
+export async function complete(messages, { maxTokens, tools, models = MODELS, timeoutMs = 25_000 } = {}) {
   if (!process.env.OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is not set.");
   const failures = [];
-  for (let i = 0; i < MODELS.length; i++) {
+  const t0 = Date.now();
+  for (let i = 0; i < models.length; i++) {
     try {
       const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
@@ -29,7 +40,7 @@ export async function complete(messages, { maxTokens, tools } = {}) {
           "X-Title": "pocket",
         },
         body: JSON.stringify({
-          models: MODELS.slice(i),
+          models: models.slice(i),
           messages,
           reasoning: { exclude: true },
           max_tokens: maxTokens,
@@ -40,23 +51,23 @@ export async function complete(messages, { maxTokens, tools } = {}) {
             provider: { require_parameters: true },
           } : {}),
         }),
-        signal: AbortSignal.timeout(25_000),
+        signal: AbortSignal.timeout(timeoutMs),
       });
       const body = await res.json().catch(() => ({}));
       const choice = body.choices?.[0];
       const error = body.error?.message ?? choice?.error?.message;
       if (res.status === 401) throw new Error("OpenRouter rejected the key (401).");
-      if (!res.ok) { failures.push(`${MODELS[i]}: ${error ?? `HTTP ${res.status}`}`); break; }
+      if (!res.ok) { failures.push(`${models[i]}: ${error ?? `HTTP ${res.status}`}`); break; }
       if (error || !(choice?.message?.content || choice?.message?.tool_calls?.length)) {
         // A 200 reply hiding an error. Skip past whichever model sent it.
-        failures.push(`${body.model ?? MODELS[i]}: ${error ?? "empty reply"}`);
-        i = Math.max(i, MODELS.indexOf(body.model));
+        failures.push(`${body.model ?? models[i]}: ${error ?? "empty reply"}`);
+        i = Math.max(i, models.indexOf(body.model));
         continue;
       }
-      return { message: choice.message, text: choice.message.content ?? "", model: String(body.model ?? MODELS[i]) };
+      return { message: choice.message, text: choice.message.content ?? "", model: String(body.model ?? models[i]), ms: Date.now() - t0 };
     } catch (e) {
       if (e.message?.startsWith("OpenRouter rejected")) throw e;
-      failures.push(`${MODELS[i]}: ${e.message ?? "request failed"}`);
+      failures.push(`${models[i]}: ${e.message ?? "request failed"}`);
     }
   }
   throw new Error(`Every free model is busy right now. ${failures.join(" | ")}`);

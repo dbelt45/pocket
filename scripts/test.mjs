@@ -34,3 +34,31 @@ for (const s of ["no", "wait", "not that one", "yesterday's meeting"]) assert.ok
 assert.equal("Jarvis, what's on today".replace(WAKE, ""), "what's on today");
 assert.equal("Hey Jarvis what's on today".replace(WAKE, ""), "what's on today");
 console.log("voice phrases: all checks passed");
+
+// Quick answers: questions answered with no AI. A write must NEVER land here,
+// because a quick answer only reads; "add" or "delete" has to reach the AI.
+import { quickRoute, whichDays, speakTasks, speakEvents } from "../api/_lib/jarvis.js";
+const wed = "2026-09-23"; // a Wednesday
+const routes = {
+  "What's on today?": "overview", "what's on my plate": "overview", "Summarize my day": "overview",
+  "What's on my calendar tomorrow?": "calendar", "Do I have any meetings Friday?": "calendar",
+  "How many meetings do I have this week?": "calendar", "what's my schedule next week": "calendar",
+  "Read me my to-do list": "tasks", "what tasks do I have": "tasks",
+  "What follow-ups do I have?": "followup", "read me my thoughts": "thought", "any notes?": "note",
+  // must go to the AI
+  "Add a task to call the pastor Friday": null, "Put lunch with Tim on my calendar tomorrow at noon": null,
+  "Cancel my 3 o'clock": null, "Take the Vercel task off my list": null, "Check off the Vercel task": null,
+  "What's on my calendar on October 3rd?": null, "remind me to call mom": null,
+  "what tasks are due before my meeting tomorrow": null,
+};
+for (const [s, want] of Object.entries(routes)) assert.equal(quickRoute(s, wed), want, `route: ${s}`);
+assert.deepEqual(whichDays("tomorrow", wed), { start: "2026-09-24", days: 1, label: "tomorrow" });
+assert.deepEqual(whichDays("Friday", wed), { start: "2026-09-25", days: 1, label: "on Friday" });
+assert.deepEqual(whichDays("this week", wed), { start: wed, days: 5, label: "this week" }); // Wed to Sun
+assert.deepEqual(whichDays("next week", wed), { start: "2026-09-28", days: 7, label: "next week" });
+assert.equal(whichDays("on October 3rd", wed), null);
+assert.equal(speakTasks([], wed), "Your to-do list is empty.");
+assert.equal(speakTasks([{ title: "A", due_on: "2026-09-01" }, { title: "B" }], wed), "You have 2 open tasks, 1 overdue: A and B.");
+assert.equal(speakEvents({ events: [] }, { label: "tomorrow", days: 1 }), "Tomorrow your calendar is clear.");
+assert.equal(speakEvents({ events: [{ summary: "TK", when: "2026-09-24 1:00 PM" }] }, { label: "tomorrow", days: 1 }), "Tomorrow you have one event: TK at 1 PM.");
+console.log("quick answers: all checks passed");

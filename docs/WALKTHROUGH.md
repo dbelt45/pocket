@@ -132,8 +132,21 @@ capability means adding an action to `TOOLS` in `api/_lib/jarvis.js`.
    sentence is that answer.
 2. Does it start with "Jarvis, I have a thought"? That is a plain pattern match, no AI,
    so it always works and costs nothing.
-3. Anything else goes to the AI with the action list. The AI picks an action, my server
-   runs it, and the AI turns the result into one or two spoken sentences.
+3. Is it a plain question about my day, calendar, tasks, follow-ups, notes or thoughts?
+   Then the code answers straight from the data. No AI, about half a second.
+4. Anything else goes to the AI with the action list and my open tasks already in the
+   prompt, so it can act in one step. After a simple action the code words the reply,
+   so there is only one AI call.
+
+**Why it is fast (Day 3 evening).** The first version sent every sentence to the AI,
+usually two or three calls in a row: one to pick the action and one to word the answer.
+Median 9.5 seconds, sometimes 40. The fix was mostly not calling the AI: questions are
+answered by code, and the reply after an action is written by code. Then I benchmarked
+ten free models on the same nine phrases (`npm run bench -- models`), checking the day,
+time and task each one picked, not just the action, and put the fastest accurate one
+first. Every change is measured before and after and logged in `docs/jarvis-speed-log.md`.
+The `jarvis-tune` skill (`.claude/skills/jarvis-tune/`) is the checklist for doing it
+again safely.
 
 **Why deletes ask first.** Speech gets misheard. "Cancel my 3 o'clock" could hit the
 wrong meeting. So a delete never happens in one step: Jarvis looks up exactly what would
@@ -154,7 +167,8 @@ lost, deleting one row in `jarvis_tokens` switches that key off. Siri requests u
 Supabase secret key on the server, so every action there filters by my user ID
 explicitly instead of relying on row-level security.
 
-**Thoughts.** A thought gets AI feedback: a verdict (realistic, stretch, not yet), why,
+**Thoughts.** A thought is saved at once and Jarvis answers right away; the AI feedback is
+written in the background and shows in the app about twenty seconds later. It has a verdict (realistic, stretch, not yet), why,
 what it could become, and three first steps. The AI's answer is checked like any other
 untrusted input before it is saved. A deeper review can be written from Claude Code with
 `npm run thoughts`, and it shows in the app as "Claude's review".
