@@ -22,7 +22,7 @@ body { margin: 0; background: var(--bg); color: var(--ink);
 main { max-width: 640px; margin: 0 auto; padding: 0 16px 48px; }
 .top { max-width: 640px; margin: 0 auto; padding: 14px 16px 8px; display: flex; align-items: center; justify-content: space-between; }
 h1 { font-size: 22px; margin: 0; letter-spacing: -0.02em; font-weight: 700; display: flex; align-items: center; gap: 10px; }
-h1 img { width: 30px; height: 30px; border-radius: 7px; }
+h1 img { height: 22px; width: auto; }
 .pill { font-size: 12px; padding: 4px 10px; border-radius: 99px; background: var(--line); color: var(--muted); }
 .pill.ok { color: var(--ok); } .pill.off { background: var(--late); color: #fff; }
 .muted { color: var(--muted); font-size: 14px; } .warn { color: var(--late); font-size: 14px; margin: 0; }
