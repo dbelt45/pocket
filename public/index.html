@@ -54,13 +54,35 @@
         <button data-f="task">Tasks</button>
         <button data-f="followup">Follow-ups</button>
         <button data-f="note">Notes</button>
+        <button data-f="thought">Thoughts</button>
         <button data-f="done">Done</button>
       </nav>
 
       <ul id="list" class="list"></ul>
 
+      <button id="jarvisBtn" class="fab" aria-label="Talk to Jarvis">Jarvis</button>
+
+      <div id="jarvis" class="sheet" hidden>
+        <div class="sheet-inner">
+          <p class="you" id="jYou"></p>
+          <p class="him" id="jSays"></p>
+          <form id="jForm" class="inline">
+            <input id="jText" placeholder="Or type to Jarvis" autocomplete="off" enterkeyhint="send">
+            <button>Send</button>
+          </form>
+          <div class="row">
+            <button id="jTalk">Talk</button>
+            <button id="jClose" class="secondary">Close</button>
+          </div>
+        </div>
+      </div>
+
       <footer class="settings">
         <div id="pushBox"></div>
+        <div id="siriBox">
+          <button id="siriOn" class="secondary">Set up "Hey Siri, Jarvis"</button>
+          <div id="siriKey" class="banner" hidden></div>
+        </div>
         <p id="stats" class="muted"></p>
         <p id="msg" class="muted"></p>
         <button id="signout" class="link">Sign out</button>

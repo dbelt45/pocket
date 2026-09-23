@@ -1,5 +1,5 @@
-// The AI feature: read a batch of rough notes and sort each one.
-// Same free OpenRouter models and the same fallback logic as Daniel OS
+// The AI features: sort rough notes, give feedback on thoughts, and power
+// Jarvis's actions (api/_lib/jarvis.js). Same free OpenRouter models and the same fallback logic as Daniel OS
 // (daniel-os/lib/ai.ts), so both apps behave the same way when a model is busy.
 
 export const MODELS = [
@@ -12,8 +12,11 @@ export const KINDS = ["task", "followup", "note"];
 // En and em dash, written as character codes so this file contains neither.
 const DASHES = new RegExp(`[${String.fromCharCode(8211, 8212)}]`, "g");
 
-/** One chat completion. Walks the model list; throws only when all of them fail. */
-export async function complete(messages, maxTokens) {
+/**
+ * One chat completion. Walks the model list; throws only when all of them fail.
+ * Returns the model's whole message, which holds either text or tool calls.
+ */
+export async function complete(messages, { maxTokens, tools } = {}) {
   if (!process.env.OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is not set.");
   const failures = [];
   for (let i = 0; i < MODELS.length; i++) {
@@ -30,6 +33,12 @@ export async function complete(messages, maxTokens) {
           messages,
           reasoning: { exclude: true },
           max_tokens: maxTokens,
+          ...(tools ? {
+            tools,
+            // Without this OpenRouter may pick a provider that silently drops
+            // `tools`, and the model then types tool calls out as plain text.
+            provider: { require_parameters: true },
+          } : {}),
         }),
         signal: AbortSignal.timeout(25_000),
       });
@@ -38,13 +47,13 @@ export async function complete(messages, maxTokens) {
       const error = body.error?.message ?? choice?.error?.message;
       if (res.status === 401) throw new Error("OpenRouter rejected the key (401).");
       if (!res.ok) { failures.push(`${MODELS[i]}: ${error ?? `HTTP ${res.status}`}`); break; }
-      if (error || !choice?.message?.content) {
+      if (error || !(choice?.message?.content || choice?.message?.tool_calls?.length)) {
         // A 200 reply hiding an error. Skip past whichever model sent it.
         failures.push(`${body.model ?? MODELS[i]}: ${error ?? "empty reply"}`);
         i = Math.max(i, MODELS.indexOf(body.model));
         continue;
       }
-      return { text: choice.message.content, model: String(body.model ?? MODELS[i]) };
+      return { message: choice.message, text: choice.message.content ?? "", model: String(body.model ?? MODELS[i]) };
     } catch (e) {
       if (e.message?.startsWith("OpenRouter rejected")) throw e;
       failures.push(`${MODELS[i]}: ${e.message ?? "request failed"}`);
@@ -100,4 +109,65 @@ export function parseSort(text, ids) {
     wanted.delete(it.id); // first answer per id wins
   }
   return out;
+}
+
+// ---------------------------------------------------------------- thoughts
+export const VERDICTS = ["realistic", "stretch", "not yet"];
+
+export function feedbackPrompt(thought, today) {
+  return [
+    {
+      role: "system",
+      content: `You give honest, practical feedback on ideas Daniel Belt records as "thoughts".
+Daniel is Director of Operations at Turnkey Services and is learning to build with AI.
+He has Claude Code on his laptop, his own apps (Daniel OS and Pocket, built on Next.js,
+Supabase and Vercel), GitHub, and free AI models through OpenRouter. Today is ${today}.
+
+Judge the idea against what one person with those tools could really do. Be direct and
+kind. If it is vague, say what would make it concrete. Never use an em dash or an en dash.
+
+Reply with JSON only, no other text, in exactly this shape:
+{"title":"a short name for the idea, under 60 characters",
+ "verdict":"realistic" or "stretch" or "not yet",
+ "summary":"one sentence to read out loud, under 30 words",
+ "why":"two or three sentences on why that verdict",
+ "what_could_be_done":"two or three sentences on what it could turn into",
+ "first_steps":["step one","step two","step three"]}`,
+    },
+    { role: "user", content: thought },
+  ];
+}
+
+/** Model output is untrusted: keep only a complete, well-formed answer. */
+export function parseFeedback(text) {
+  const json = String(text ?? "").match(/\{[\s\S]*\}/)?.[0];
+  if (!json) return null;
+  let f;
+  try { f = JSON.parse(json); } catch { return null; }
+  const clean = (v, n) => String(v ?? "").replace(DASHES, "-").trim().slice(0, n);
+  const out = {
+    title: clean(f.title, 80),
+    verdict: VERDICTS.includes(f.verdict) ? f.verdict : null,
+    summary: clean(f.summary, 300),
+    why: clean(f.why, 800),
+    what_could_be_done: clean(f.what_could_be_done, 800),
+    first_steps: Array.isArray(f.first_steps) ? f.first_steps.map((x) => clean(x, 200)).filter(Boolean).slice(0, 5) : [],
+  };
+  return out.verdict && out.summary && out.why && out.first_steps.length ? out : null;
+}
+
+/** Write the AI's feedback onto one thought. Never throws; returns the feedback or null. */
+export async function giveFeedback(supabase, userId, capture, today, log) {
+  try {
+    const reply = await complete(feedbackPrompt(capture.body, today), { maxTokens: 3000 });
+    const fb = parseFeedback(reply.text);
+    if (!fb) { await log(false, 200, `Thought feedback unusable from ${reply.model}.`); return null; }
+    await supabase.from("captures").update({ feedback: { ...fb, model: reply.model }, title: fb.title || null })
+      .eq("id", capture.id).eq("user_id", userId);
+    await log(true, 200, `Thought feedback by ${reply.model}.`);
+    return fb;
+  } catch (e) {
+    await log(false, null, `Thought feedback failed: ${e.message}`);
+    return null;
+  }
 }

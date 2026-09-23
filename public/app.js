@@ -66,15 +66,19 @@ $("#captureForm").onsubmit = (e) => {
   e.preventDefault();
   const body = $("#body").value.trim();
   if (!body) return;
+  $("#body").value = "";
+  queueCapture(body);
+};
+
+function queueCapture(body) {
   // The id is made here, on the phone. A retried upload reuses it, so the
   // database can tell a retry from a new note and never saves one twice.
   const item = { id: crypto.randomUUID(), body, captured_at: new Date().toISOString() };
   write(K.outbox, [...read(K.outbox, []), item]);
-  $("#body").value = "";
   render();
   track("capture", { offline: !navigator.onLine, chars: body.length });
   sync();
-};
+}
 
 // --------------------------------------------------------------------- sync
 async function token() { return (await sb.auth.getSession()).data.session?.access_token; }
@@ -96,7 +100,7 @@ async function sync() {
       write(K.outbox, read(K.outbox, []).filter((b) => !sent.has(b.id)));
     }
     await loadList();
-    if (read(K.list, []).some((c) => c.ai_status === "pending")) {
+    if (read(K.list, []).some((c) => c.ai_status === "pending" || (c.kind === "thought" && !c.feedback))) {
       render();
       const r = await api("/api/sort", "POST");
       if (!r.ok) msg(`AI sorting is unavailable right now, so your notes are saved unsorted. It tries again next time. (${r.message ?? r.status})`);
@@ -132,7 +136,7 @@ function renderNet() {
   else { el.textContent = waiting ? `${waiting} waiting` : "Synced"; el.className = "pill ok"; }
 }
 
-const LABEL = { task: "Task", followup: "Follow-up", note: "Note", unsorted: "Unsorted" };
+const LABEL = { task: "Task", followup: "Follow-up", note: "Note", thought: "Thought", unsorted: "Unsorted" };
 
 function render() {
   renderNet();
@@ -140,7 +144,7 @@ function render() {
   const queued = read(K.outbox, []).map((q) => ({ ...q, kind: "unsorted", queued: true }));
   let rows = [...queued, ...read(K.list, [])];
   rows = filter === "done" ? rows.filter((r) => r.done_at)
-       : rows.filter((r) => !r.done_at && (filter === "all" || r.kind === filter));
+       : rows.filter((r) => !r.done_at && (filter === "all" ? r.kind !== "thought" : r.kind === filter));
 
   $("#list").innerHTML = rows.length ? rows.map((r) => {
     const status = r.queued ? "Waiting for a signal"
@@ -156,9 +160,12 @@ function render() {
       <div class="meta"><span class="kind">${LABEL[r.kind]}</span>${due}${status ? `<span class="status">${status}</span>` : ""}</div>
       <p class="title">${esc(r.title || r.body)}</p>
       ${r.title && r.title !== r.body ? `<p class="body">${esc(r.body)}</p>` : ""}
+      ${r.kind === "thought" ? feedbackHtml(r) : ""}
       <div class="actions">${actions}${r.queued ? "" : `<button data-a="del" data-id="${r.id}" class="link">Delete</button>`}</div>
     </li>`;
-  }).join("") : `<li class="empty">${filter === "done" ? "Nothing done yet." : "Nothing here. Type something above."}</li>`;
+  }).join("") : `<li class="empty">${filter === "done" ? "Nothing done yet."
+      : filter === "thought" ? 'No thoughts yet. Tap Jarvis and say "I have a thought".'
+      : "Nothing here. Type something above."}</li>`;
 }
 
 const fmtDate = (d) => new Date(`${d}T12:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
@@ -201,7 +208,7 @@ async function loadToday() {
 
 function renderToday() {
   const t = read(K.today, null), el = $("#today");
-  if (!t) { el.innerHTML = `<p class="muted">Loading today's calendar...</p>`; return; }
+  if (!t) { el.innerHTML = `<p class="muted">${navigator.onLine ? "Loading today's calendar..." : "Today's calendar needs a signal."}</p>`; return; }
   const asOf = new Date(t.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   if (!t.ok) { el.innerHTML = `<p class="warn">Calendar unavailable: ${esc(t.message)}</p>`; return; }
   const items = t.events.map((e) => `<li><span>${e.allDay ? "All day" : new Date(e.start).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>${esc(e.summary)}</li>`).join("");
@@ -269,5 +276,126 @@ async function loadStats() {
 }
 
 function msg(t) { $("#msg").textContent = t; }
+
+// The AI's take on a thought, plus a deeper review if one was written from Claude Code.
+function feedbackHtml(r) {
+  const f = r.feedback;
+  const review = r.review ? `<p class="h">Claude's review</p><p>${esc(r.review).replace(/\n/g, "<br>")}</p>` : "";
+  if (!f) return `<div class="fb"><p class="muted">Feedback coming when the AI is free.</p>${review}</div>`;
+  return `<div class="fb">
+    <p><span class="verdict ${f.verdict.replace(" ", "-")}">${esc(f.verdict)}</span> ${esc(f.summary)}</p>
+    <p class="h">Why</p><p>${esc(f.why)}</p>
+    <p class="h">What it could become</p><p>${esc(f.what_could_be_done)}</p>
+    <p class="h">How to start</p><ol>${f.first_steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ol>
+    ${review}
+  </div>`;
+}
+
+// -------------------------------------------------------------------- jarvis
+// Tap Jarvis, talk, and he answers out loud. The phone's own speech engine
+// does both directions (listening and speaking), so voice costs nothing. Only
+// working out what you meant uses the AI, on the server.
+// If this phone's browser cannot listen, the text box works with the keyboard's mic.
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recog = null;
+
+$("#jarvisBtn").onclick = () => {
+  $("#jarvis").hidden = false;
+  $("#jYou").textContent = "";
+  unlockSpeech();
+  if (SR) talk();
+  else { $("#jSays").textContent = "Type below, or tap the mic on your keyboard."; $("#jText").focus(); }
+};
+$("#jClose").onclick = () => { $("#jarvis").hidden = true; speechSynthesis.cancel(); recog?.abort(); };
+$("#jTalk").onclick = () => { unlockSpeech(); SR ? talk() : $("#jText").focus(); };
+$("#jForm").onsubmit = (e) => {
+  e.preventDefault();
+  const t = $("#jText").value.trim();
+  if (t) { $("#jText").value = ""; ask(t); }
+};
+
+// iPhone only lets a page speak after a tap. Speaking nothing during the tap
+// unlocks it for the reply that arrives a few seconds later.
+function unlockSpeech() { try { speechSynthesis.speak(new SpeechSynthesisUtterance("")); } catch { /* no speech */ } }
+
+function talk() {
+  recog?.abort();
+  recog = new SR();
+  recog.lang = "en-US"; recog.interimResults = true; recog.continuous = false;
+  let heard = "";
+  $("#jSays").textContent = "Listening...";
+  recog.onresult = (e) => { heard = [...e.results].map((r) => r[0].transcript).join(""); $("#jYou").textContent = heard; };
+  recog.onerror = (e) => {
+    if (e.error === "not-allowed" || e.error === "service-not-allowed") $("#jSays").textContent = "The microphone is blocked. Allow it in Settings, or type below.";
+  };
+  recog.onend = () => {
+    if (heard.trim()) ask(heard.trim());
+    else if ($("#jSays").textContent === "Listening...") $("#jSays").textContent = "I didn't hear anything. Tap Talk to try again.";
+  };
+  try { recog.start(); } catch { $("#jSays").textContent = "Tap Talk to answer."; }
+}
+
+async function ask(text) {
+  $("#jYou").textContent = text;
+  if (!navigator.onLine) {
+    // No signal: never lose what he said. Keep it as a note to sort later.
+    queueCapture(text);
+    return reply("No signal, so I saved that as a note. I'll sort it when you're back online.");
+  }
+  $("#jSays").textContent = "...";
+  const r = await fetch("/api/jarvis", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${await token()}` },
+    body: JSON.stringify({ text }),
+  }).then((x) => x.json()).catch(() => ({ say: "I couldn't reach the server. Try again in a moment." }));
+  await reply(r.say ?? "Something went wrong on my side.");
+  loadList().then(render).catch(() => {});
+  // He asked a question ("What are you thinking?", "delete X?"), so listen for the answer.
+  if (r.listen) SR ? talk() : $("#jText").focus();
+}
+
+function reply(text) {
+  $("#jSays").textContent = text;
+  return new Promise((done) => {
+    try {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "en-US"; u.onend = done; u.onerror = done;
+      speechSynthesis.cancel(); speechSynthesis.speak(u);
+      setTimeout(done, 30000); // never hang if the phone never reports "finished"
+    } catch { done(); }
+  });
+}
+
+// --------------------------------------------------------------- siri setup
+// Siri cannot sign in, so it carries a personal key. The key is shown once and
+// only its fingerprint (SHA-256) is saved, like a password.
+$("#siriOn").onclick = async () => {
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
+  const key = "pk_" + btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key));
+  const hash = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  const { error } = await sb.from("jarvis_tokens").insert({ token_hash: hash, label: `Siri ${new Date().toLocaleDateString()}` });
+  if (error) return msg(`Could not create the Siri key: ${error.message}`);
+  track("siri_key_created");
+  const box = $("#siriKey");
+  box.hidden = false;
+  box.innerHTML = `<p><b>Your Siri key.</b> It is shown only this once.</p>
+    <p class="key">${key}</p><button id="copyKey" class="secondary">Copy key</button>
+    <ol>
+      <li>Open <b>Shortcuts</b>, tap <b>+</b>, name it <b>Jarvis</b>.</li>
+      <li>Add <b>Dictate Text</b>.</li>
+      <li>Add <b>Get Contents of URL</b>. URL: <span class="key">${location.origin}/api/jarvis</span>
+        Method <b>POST</b>. Add header <b>Authorization</b> with the value <b>Bearer</b>, a space, then paste the key.
+        Request Body <b>JSON</b>: key <b>text</b>, value <b>Dictated Text</b>.</li>
+      <li>Add <b>Get Dictionary Value</b> for key <b>say</b>, then <b>Speak Text</b>.</li>
+      <li>Add <b>Get Dictionary Value</b> for key <b>listen</b> from <b>Contents of URL</b>, then <b>If</b> it <b>has any value</b>,
+        repeat steps 2 to 4 inside the If.</li>
+      <li>Say <b>"Hey Siri, Jarvis"</b>.</li>
+    </ol>
+    <p class="muted">Lost the key or the phone? Make a new key here, and delete the old row in Supabase (jarvis_tokens).</p>`;
+  $("#copyKey").onclick = () => navigator.clipboard.writeText(key)
+    .then(() => msg("Key copied."), () => msg("Copy failed. Press and hold the key to copy it."));
+};
+
 
 start();

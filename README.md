@@ -6,6 +6,11 @@ a to-do, "call the pastor back Friday" - and AI sorts it into a **task**, a
 in the Daniel OS task list. Every morning a notification says what is due and
 how the day looks.
 
+**Jarvis** is the voice. Tap the Jarvis button, or say "Hey Siri, Jarvis", and talk:
+add or remove calendar events, add or remove tasks, hear your tasks and meetings read
+back, get a spoken summary of the day, or say **"Jarvis, I have a thought"** to save an
+idea to the Thoughts tab, where the AI says whether it is realistic and how to start.
+
 Project 2 of Daniel Belt's 14-day AI Build Curriculum (Day 3).
 
 Live: _add the Vercel URL here once deployed_
@@ -17,8 +22,8 @@ Live: _add the Vercel URL here once deployed_
 | Installable PWA, manifest and service worker, on iPhone home screen | `public/manifest.webmanifest`, `public/sw.js`, iOS tags in `public/index.html` |
 | Authentication and a persistent database | Supabase email code sign-in; `captures` table in Postgres with row-level security |
 | Sensible offline | Captures queue on the phone and send when a signal returns; last list and calendar shown as a "saved copy"; red Offline badge |
-| One meaningful AI feature | `/api/sort`: sorts notes into task, follow-up or note, writes a clean title, reads dates like "Friday" |
-| One external API | Google Calendar: today's meetings at the top and in the morning message |
+| One meaningful AI feature | `/api/sort` sorts notes into task, follow-up or note. `/api/jarvis` turns speech into actions. Thoughts get a verdict and first steps |
+| One external API | Google Calendar: read, add and delete events; today's meetings at the top and in the morning message |
 | Notifications | Web push, a morning reminder sent by a Vercel cron, plus "Send it now" |
 | Usage analytics | `events` table, tagged `app = pocket`: opens, captures, done, push enabled |
 | Mobile-first UX, HTTPS | Built for a 390px screen first; Vercel serves HTTPS |
@@ -33,9 +38,44 @@ Live: _add the Vercel URL here once deployed_
 | AI | OpenRouter free models, same list as Daniel OS | Ricky directive: no paid AI calls |
 | Push | `web-push` library | Push messages must be encrypted per phone; not something to hand-write |
 
+## Jarvis
+
+| You say | Jarvis does |
+|---|---|
+| "What's on today?" / "Summarize my day" | Reads meetings, tasks due or overdue, follow-ups due |
+| "Add a task to call Tim Friday" | Adds it to the Daniel OS task list and to Pocket |
+| "Check off the Vercel task" | Marks it done in both places |
+| "Take the Vercel task off my list" | Asks "Just to be sure, remove ...?" and deletes only on yes |
+| "Put a meeting with Tim tomorrow at 2 for 45 minutes" | Adds it to Google Calendar |
+| "What's on my calendar Friday?" | Reads that day back |
+| "Cancel my 3 o'clock" | Asks to confirm, then deletes the event |
+| "What follow-ups do I have?" / "Read me my thoughts" | Reads them back |
+| "Jarvis, I have a thought" | Answers "What are you thinking?", saves the next thing you say to Thoughts, gives a quick take out loud |
+
+How it is built (`api/_lib/jarvis.js`):
+- **"I have a thought" and "yes" are matched by plain patterns, not AI**, so they always
+  work and cost nothing. Tested in `npm test`.
+- Everything else goes to the AI with a fixed list of nine actions. It can only do what is
+  on that list, and the server runs each action, scoped to your own rows.
+- **Deletes always ask first.** The question and the item are remembered for two minutes
+  in `jarvis_state`, so the next sentence is read as the answer. Anything but a yes
+  cancels it.
+- Listening and speaking use the phone's own speech engine, which is free. If the browser
+  cannot listen, type or use the keyboard mic in the same box.
+- With no signal, whatever you said is saved as a note, never lost.
+- **Siri** uses a personal key (`pk_...`) because Siri cannot sign in. Only the key's
+  SHA-256 fingerprint is stored in `jarvis_tokens`. Setup steps appear in the app under
+  "Set up Hey Siri, Jarvis".
+- **Reviewing thoughts from Claude Code:** `npm run thoughts` lists thoughts with no review;
+  `npm run thoughts -- review <id> <file>` writes one back. It shows in the app as
+  "Claude's review".
+
 ## Setup from scratch
 
 1. **Database.** Supabase, SQL Editor, New query, paste `supabase/schema.sql`, Run.
+   For Jarvis to change the calendar, Daniel OS must request the
+   `calendar.events` scope (it does since 2026-09-23), and you sign in to Daniel OS once
+   more so Google grants it.
    Needs the Daniel OS schema run first (Pocket reuses `tasks`, `events`,
    `integration_log`, `integration_tokens`).
 2. **Sign-in code.** Supabase, Authentication, Emails, **Magic Link** template.
@@ -57,7 +97,7 @@ Nowhere in this repo. `.env.local` is gitignored.
 |---|---|---|
 | `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` | Vercel | Yes, via `/api/config`. Safe: row-level security decides what any session can read |
 | `VAPID_PUBLIC_KEY` | Vercel | Yes. It is the public half, meant to be shared |
-| `SUPABASE_SECRET_KEY` | Vercel, server only | **Never.** Only the morning cron uses it |
+| `SUPABASE_SECRET_KEY` | Vercel, server only | **Never.** Only the morning cron and Siri requests use it, because neither has a signed-in session |
 | `OPENROUTER_API_KEY`, `GOOGLE_CLIENT_SECRET`, `VAPID_PRIVATE_KEY`, `CRON_SECRET` | Vercel, server only | **Never** |
 
 To rotate one: make a new value where it was issued, paste it into Vercel,
@@ -86,6 +126,11 @@ of notifications, so each phone taps "Turn on morning reminder" again.
 - **iPhone can clear an installed web app's storage** if it goes unused for weeks.
   Anything already synced is safe in the database; only unsent notes would be lost.
 - Deleting a capture that became a task leaves the task in Daniel OS on purpose.
+- **Jarvis waits on the AI.** A command takes about 2 to 10 seconds; a thought with feedback
+  about 20. Each command uses one to three of the 50 free daily requests.
+- **Listening inside the installed app depends on iOS.** If the phone's browser does not
+  offer speech recognition there, the Jarvis box falls back to typing or the keyboard mic.
+  Siri always works.
 
 ## Proving it to Ricky
 

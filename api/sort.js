@@ -1,5 +1,5 @@
 import { asUser, unauthorized, logCall, todayInAustin } from "./_lib/supabase.js";
-import { complete, sortPrompt, parseSort } from "./_lib/ai.js";
+import { complete, sortPrompt, parseSort, giveFeedback } from "./_lib/ai.js";
 
 // POST /api/sort - the AI feature. Takes every capture still waiting to be
 // sorted, asks the model to sort them all in ONE request (the free tier allows
@@ -11,6 +11,13 @@ export default async function handler(req, res) {
   if (!who) return unauthorized(res);
   const { supabase, user } = who;
 
+  // Thoughts saved while the AI was busy get their feedback now, two per open
+  // at most, so a backlog cannot eat the whole day's free allowance at once.
+  const { data: noFeedback } = await supabase.from("captures")
+    .select("id, body").eq("kind", "thought").is("feedback", null).order("captured_at").limit(2);
+  const log = (ok, status, msg) => logCall(supabase, user.id, "openrouter", ok, status, `[pocket] ${msg}`);
+  for (const t of noFeedback ?? []) await giveFeedback(supabase, user.id, t, todayInAustin(), log);
+
   const { data: pending, error } = await supabase.from("captures")
     .select("id, body").eq("ai_status", "pending").order("captured_at").limit(10);
   if (error) return res.status(500).json({ ok: false, message: error.message });
@@ -18,7 +25,7 @@ export default async function handler(req, res) {
 
   let sorted, model;
   try {
-    const reply = await complete(sortPrompt(pending, todayInAustin()), 4000);
+    const reply = await complete(sortPrompt(pending, todayInAustin()), { maxTokens: 4000 });
     model = reply.model;
     sorted = parseSort(reply.text, pending.map((p) => p.id));
   } catch (e) {

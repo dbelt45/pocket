@@ -111,3 +111,46 @@ claims. Everything secret lives in Vercel's settings.
 - Let me change a note's type when the AI gets it wrong.
 - Reminders at the exact due time instead of one each morning (needs a paid cron
   or a different scheduler).
+
+## 11. Jarvis, the voice
+
+**What he can do.** Nine actions and nothing else: summarize the day, list, add, complete
+and delete tasks, list, add and delete calendar events, and read back follow-ups, notes
+or thoughts. If Ricky asks "what can it do?", that list is the whole answer. Adding a
+capability means adding an action to `TOOLS` in `api/_lib/jarvis.js`.
+
+**How a sentence is handled, in order.**
+1. Is Jarvis waiting for an answer? ("What are you thinking?" or "delete X?") Then this
+   sentence is that answer.
+2. Does it start with "Jarvis, I have a thought"? That is a plain pattern match, no AI,
+   so it always works and costs nothing.
+3. Anything else goes to the AI with the action list. The AI picks an action, my server
+   runs it, and the AI turns the result into one or two spoken sentences.
+
+**Why deletes ask first.** Speech gets misheard. "Cancel my 3 o'clock" could hit the
+wrong meeting. So a delete never happens in one step: Jarvis looks up exactly what would
+be removed, reads it back, and saves the pending delete for two minutes. Only a yes on
+the next sentence runs it. The yes check is a pattern, not AI, so the AI can never
+"decide" a yes on its own.
+
+**Why the waiting state lives in the database, not the phone.** Siri and the app both
+talk to the same brain. Keeping "what am I waiting for" on the server means the second
+sentence works the same from either one.
+
+**Voice costs nothing.** Listening and speaking use the phone's own speech engine. Only
+working out what I meant uses the AI.
+
+**Siri and the key.** Siri cannot sign in, so it carries a personal key. It is shown
+once, and only its SHA-256 fingerprint is stored, the way a password is. If the phone is
+lost, deleting one row in `jarvis_tokens` switches that key off. Siri requests use the
+Supabase secret key on the server, so every action there filters by my user ID
+explicitly instead of relying on row-level security.
+
+**Thoughts.** A thought gets AI feedback: a verdict (realistic, stretch, not yet), why,
+what it could become, and three first steps. The AI's answer is checked like any other
+untrusted input before it is saved. A deeper review can be written from Claude Code with
+`npm run thoughts`, and it shows in the app as "Claude's review".
+
+**The calendar permission.** Day 1 asked Google for read-only calendar access. Adding
+and deleting events needs `calendar.events`, which covers events only, not calendar
+settings or sharing. It is the smallest permission that does the job.

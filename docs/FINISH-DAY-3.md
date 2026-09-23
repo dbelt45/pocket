@@ -1,6 +1,6 @@
 # Finish Day 3: the steps only you can do
 
-About 20 minutes. Everything else is built, tested and on GitHub.
+About 30 minutes. Everything else is built, tested and on GitHub, including Jarvis.
 
 ## 1. Supabase: create the tables (2 min)
 *Closes: "Authentication and a persistent database"*
@@ -23,13 +23,26 @@ gets signed in. A code typed into the app avoids that.
 1. **Project Settings**, **API Keys**, **Secret keys**. Create one named `pocket` if none exists.
 2. Paste it after `SUPABASE_SECRET_KEY=` in `pocket/.env.local`.
 
-Only the morning reminder uses it. It never reaches the phone.
+Only the morning reminder and Siri requests use it. It never reaches the phone.
 
 ## 4. Copy the two Google values (2 min)
 
 In **Vercel**, the **daniel-os** project, **Settings**, **Environment Variables**, copy
 `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` into the matching lines of
 `pocket/.env.local`. (They are not in the Day 1 local file, only in Vercel.)
+
+## 4b. Google: let Jarvis edit your calendar (3 min)
+*Closes: "add and remove things to my calendar"*
+
+Daniel OS used to ask Google for read-only calendar access. It now asks for
+permission to add and delete events (already pushed and deployed).
+
+1. console.cloud.google.com, your Daniel OS project, **Google Auth Platform** (or
+   **OAuth consent screen**), **Data Access**, **Add or remove scopes**.
+2. Tick `.../auth/calendar.events`, **Update**, **Save**.
+3. Open Daniel OS, **sign out, sign back in with Google**, and allow the new calendar
+   permission when Google asks. Until you do, Jarvis can read your calendar but will
+   say he cannot change it yet.
 
 ## 5. Vercel: deploy (5 min)
 *Closes: "deployed over HTTPS"*
@@ -59,3 +72,17 @@ a day. This is new spend, so it is your decision, and you may want Ricky's okay.
    say "Waiting for a signal". Turn Airplane Mode off and watch it sync.
 
 The seven-day usage clock starts tonight.
+
+## 8. Jarvis (5 min)
+
+1. In Pocket tap **Jarvis** and allow the microphone. Try:
+   - "What's on today?"
+   - "Add a task to send Ricky the Day 3 report"
+   - "Jarvis, I have a thought" ... then say the thought. Check the **Thoughts** tab.
+   - "Take the Day 3 report task off my list", then say "yes".
+2. If the Jarvis box says to type instead, the phone's browser will not listen inside the
+   installed app. The keyboard mic still works there, and Siri below always works.
+3. **Siri:** at the bottom of Pocket tap **Set up "Hey Siri, Jarvis"**. Copy the key and
+   follow the six steps shown right there in the Shortcuts app. Then say
+   "Hey Siri, Jarvis".
+4. To have me review your thoughts from the laptop, say "review my thoughts" in Claude Code.

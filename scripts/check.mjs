@@ -12,7 +12,7 @@ line("Settings", !missing.length, missing.length ? `missing: ${missing.join(", "
 // Tables: the publishable key sees zero rows (row-level security), but a
 // missing table is a different error, so this tells "not created" from "empty".
 const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY);
-for (const t of ["captures", "push_subscriptions"]) {
+for (const t of ["captures", "push_subscriptions", "jarvis_state", "jarvis_tokens"]) {
   const { error } = await sb.from(t).select("*").limit(1);
   line(`Table ${t}`, !error, !error ? "exists" : error.code === "PGRST205" ? "not created yet - run supabase/schema.sql" : error.message);
 }
