@@ -36,10 +36,12 @@ information as if it were current. Instead the app keeps its own last copy of
 the list and calendar and labels it "saved copy", so I always know what I am
 looking at.
 
-**How it caches:** "stale while revalidate". It shows the saved copy instantly,
-then quietly downloads a fresh one for next time. On a bad connection the app
-still opens at once. The trade: after a deploy, the first open shows the old
-version and the second shows the new one.
+**How it caches:** "network first". With a signal it always fetches the newest
+files and saves them; with no signal, or one too weak to answer in 3 seconds, it
+opens from the saved copy. The first version used "stale while revalidate" (show
+the saved copy instantly, refresh in the background). That left the phone one or
+two opens behind every deploy, and on day one it served an old sign-in screen
+after a fix was already live. For an app that changes daily, fresh beats instant.
 
 ## 4. Offline, and why notes never duplicate
 

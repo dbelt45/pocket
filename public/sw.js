@@ -11,7 +11,7 @@
 // 2. NOTIFICATIONS. It receives the morning push and shows it, even when
 //    Pocket is closed.
 
-const VERSION = "pocket-v6"; // bump to force every phone to take a fresh copy
+const VERSION = "pocket-v7"; // bump to force every phone to take a fresh copy
 const SHELL = [
   "/", "/app.js", "/styles.css", "/vendor/supabase.js", "/manifest.webmanifest",
   "/icons/icon-192.png", "/icons/icon-512.png", "/icons/apple-touch-icon.png",
@@ -27,20 +27,23 @@ self.addEventListener("activate", (e) => {
     .then(() => self.clients.claim()));
 });
 
-// Stale-while-revalidate: answer instantly from the saved copy, then fetch a
-// fresh one in the background for next time. On a bad connection the app still
-// opens instantly; with a good one it is at most one open behind a new deploy.
+// Network first, saved copy as the fallback. With a signal the phone always
+// gets the newest app (the first plan, "show the saved copy, refresh it in the
+// background", left phones one or two opens behind every deploy, which broke
+// sign-in on day one). With no signal, or a signal too weak to answer in 3
+// seconds, it opens from the saved copy.
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== location.origin || url.pathname.startsWith("/api/")) return;
-  const key = e.request.mode === "navigate" ? "/" : e.request;
+  const key = e.request.mode === "navigate" ? "/" : url.pathname;
   e.respondWith(caches.open(VERSION).then(async (cache) => {
-    const cached = await cache.match(key);
-    const fresh = fetch(e.request).then((res) => {
-      if (res.ok) cache.put(key, res.clone());
-      return res;
-    }).catch(() => cached);
-    return cached ?? fresh;
+    const net = fetch(e.request).then((res) => { if (res.ok) cache.put(key, res.clone()); return res; });
+    const slow = new Promise((r) => setTimeout(r, 3000)).then(() => cache.match(key));
+    try {
+      return (await Promise.race([net, slow])) ?? (await net);
+    } catch {
+      return (await cache.match(key)) ?? Response.error();
+    }
   }));
 });
 
