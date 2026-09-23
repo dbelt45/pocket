@@ -51,6 +51,7 @@ function show() {
   $("#install").hidden = !(isIOS && !standalone);
   $("#auth").hidden = !!session;
   $("#app").hidden = !session;
+  $("#moveBox").hidden = !(session && isIOS && !standalone);
   renderNet();
   if (!session) return;
   render(); renderToday(); renderPush();
@@ -90,6 +91,17 @@ function handoff(h, cfg) {
     location.reload();
   };
 }
+
+// Signed in inside Safari by mistake? Hand that session to the installed app:
+// show its refresh token as a code, and forget it here WITHOUT signing out
+// (signing out would end the very session being handed over).
+$("#moveBtn").onclick = async () => {
+  sb.auth.stopAutoRefresh();
+  const s = (await sb.auth.getSession()).data.session;
+  for (const k of Object.keys(localStorage)) if (k.startsWith("sb-")) localStorage.removeItem(k);
+  $("#app").hidden = true;
+  handoff(new URLSearchParams({ access_token: s.access_token, refresh_token: s.refresh_token }), cfg);
+};
 
 $("#emailForm").onsubmit = async (e) => {
   e.preventDefault();
