@@ -368,7 +368,7 @@ $("#jarvisBtn").onclick = () => {
   if (SR) talk();
   else { $("#jSays").textContent = "Type below, or tap the mic on your keyboard."; $("#jText").focus(); }
 };
-$("#jClose").onclick = () => { $("#jarvis").hidden = true; speechSynthesis.cancel(); recog?.abort(); };
+$("#jClose").onclick = () => { $("#jarvis").hidden = true; speechSynthesis.cancel(); try { playing?.stop(); } catch {} recog?.abort(); };
 $("#jTalk").onclick = () => { unlockSpeech(); SR ? talk() : $("#jText").focus(); };
 $("#jForm").onsubmit = (e) => {
   e.preventDefault();
@@ -378,7 +378,13 @@ $("#jForm").onsubmit = (e) => {
 
 // iPhone only lets a page speak after a tap. Speaking nothing during the tap
 // unlocks it for the reply that arrives a few seconds later.
-function unlockSpeech() { try { speechSynthesis.speak(new SpeechSynthesisUtterance("")); } catch { /* no speech */ } }
+// The ElevenLabs player needs the same unlock: waking the audio engine during
+// the tap lets it play the reply that arrives later.
+let audioCtx = null, playing = null;
+function unlockSpeech() {
+  try { speechSynthesis.speak(new SpeechSynthesisUtterance("")); } catch { /* no speech */ }
+  try { audioCtx ??= new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch { /* no audio */ }
+}
 
 function talk() {
   recog?.abort();
@@ -416,8 +422,33 @@ async function ask(text) {
   if (r.listen) SR ? talk() : $("#jText").focus();
 }
 
-function reply(text) {
+// Jarvis's own voice, from ElevenLabs via /api/speak. Resolves true once he
+// has finished speaking, or false straight away (offline, not set up, any
+// error) so reply() falls back to the phone's built-in voice.
+async function speakJarvis(text) {
+  if (!audioCtx || !navigator.onLine) return false;
+  try {
+    const r = await fetch("/api/speak", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${await token()}` },
+      body: JSON.stringify({ text }),
+    });
+    if (r.status !== 200) return false;
+    const buf = await audioCtx.decodeAudioData(await r.arrayBuffer());
+    speechSynthesis.cancel();
+    return await new Promise((done) => {
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf; src.connect(audioCtx.destination); playing = src;
+      src.onended = () => done(true);
+      src.start();
+      setTimeout(() => done(true), buf.duration * 1000 + 2000); // never hang
+    });
+  } catch { return false; }
+}
+
+async function reply(text) {
   $("#jSays").textContent = text;
+  if (await speakJarvis(text)) return;
   return new Promise((done) => {
     try {
       const u = new SpeechSynthesisUtterance(text);
