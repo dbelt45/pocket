@@ -4,12 +4,15 @@
    #0A0A0A dark, #FFFFFF white, #3D3D3D mid gray, #BDBDBD light gray, #F4F4F4 off white.
    The brand has no accent color, so kinds are told apart by shade and label.
    Red is the one color outside the palette, kept for warnings (offline, overdue).
-   Card #1C1C1C is the dark card gray the Turnkey family shares (see TK CFO). */
+   Card #1C1C1C is the dark card gray the Turnkey family shares (see TK CFO).
+   Purple (Daniel's ask, 2026-09-23): the background glows with Turnkey Web's
+   Bright Purple #6600CC and Deep Indigo #1A0080, and cards are see-through so
+   the purple shows behind them. Change the two glow colors below to retint. */
 @font-face { font-family: "Plus Jakarta Sans"; font-weight: 400 700; font-display: swap;
   src: url("/fonts/plus-jakarta-sans.woff2") format("woff2"); }
 :root {
   color-scheme: dark;
-  --bg: #0A0A0A; --card: #1C1C1C; --ink: #FFFFFF; --muted: #BDBDBD; --line: #3D3D3D;
+  --bg: #140A30; --card: rgba(255,255,255,.06); --solid: #1A1233; --ink: #FFFFFF; --muted: #BDBDBD; --line: #3D3D3D;
   --accent: #FFFFFF; --on-accent: #0A0A0A; --soft: #F4F4F4;
   --task: #FFFFFF; --followup: #BDBDBD; --note: #3D3D3D; --thought: #F4F4F4;
   --ok: #FFFFFF; --late: #FF5A4E; /* the one non-brand color: warnings only */
@@ -19,6 +22,12 @@ html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--bg); color: var(--ink);
   font: 16px/1.45 "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
+/* The purple glow. A fixed layer rather than background-attachment: fixed,
+   which iPhone Safari ignores. */
+body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(140% 80% at 15% 0%, rgba(102,0,204,.7), transparent 70%),
+              radial-gradient(120% 70% at 100% 100%, rgba(80,0,180,.6), transparent 70%), var(--bg); }
+.today, .list li, .banner, input, textarea, select, button.secondary { -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
 main { max-width: 640px; margin: 0 auto; padding: 0 16px 48px; }
 .top { max-width: 640px; margin: 0 auto; padding: 14px 16px 8px; display: flex; align-items: center; justify-content: space-between; }
 h1 { font-size: 22px; margin: 0; letter-spacing: -0.02em; font-weight: 700; display: flex; align-items: center; gap: 10px; }
@@ -70,7 +79,7 @@ form { display: grid; gap: 8px; margin-bottom: 12px; }
   border-radius: 99px; padding: 14px 22px; min-height: 52px; box-shadow: 0 0 24px rgba(255,255,255,.18); }
 .sheet { position: fixed; inset: 0; z-index: 10; background: rgba(0,0,0,.6); display: flex; align-items: flex-end; }
 .sheet[hidden] { display: none; }
-.sheet-inner { width: 100%; max-width: 640px; margin: 0 auto; background: var(--card); border-radius: 18px 18px 0 0;
+.sheet-inner { width: 100%; max-width: 640px; margin: 0 auto; background: var(--solid); border-radius: 18px 18px 0 0;
   padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); display: grid; gap: 10px; }
 .you { margin: 0; color: var(--muted); font-size: 15px; min-height: 1.4em; }
 .him { margin: 0; font-size: 19px; font-weight: 600; min-height: 1.4em; }
