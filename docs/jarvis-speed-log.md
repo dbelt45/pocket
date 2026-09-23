@@ -54,3 +54,7 @@ sentence to getting the words back; the phone's speaking time is not included.
 | 2026-09-23T22:37 | local (laptop) | 0.4s | 3.5s | 6/6 |
 | 2026-09-23T22:38 | model google/gemma-4-26b-a4b-it:free | 0.1s | 0.2s | 0/18 |
 | 2026-09-23T22:38 | live | 0.5s | 3.9s | 12/12 |
+| 2026-09-23T22:39 | model qwen/qwen3.8-27b:free | 0.2s | 0.2s | 0/18 |
+| 2026-09-23T22:40 | model poolside/laguna-xs-2.1:free | 0.5s | 2.3s | 9/18 |
+| 2026-09-23T22:43 | model nvidia/nemotron-3-ultra-550b-a55b:free | 4.4s | 13.7s | 13/18 |
+| 2026-09-23T22:44 | model inclusionai/ling-3.0-flash-fin:free | 0.8s | 1.2s | 18/18 |
