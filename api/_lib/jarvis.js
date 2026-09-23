@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { complete, giveFeedback, JARVIS_MODELS } from "./ai.js";
+import { complete, giveFeedback, JARVIS_MODELS, DASHES } from "./ai.js";
 import { TZ, todayInAustin, logCall } from "./supabase.js";
 import { eventsBetween, addEvent, getEvent, deleteEvent, addDays } from "./calendar.js";
 
@@ -28,11 +28,12 @@ const WAIT_MINUTES = 2;
 
 const SPOKEN = `You are Jarvis, Daniel Belt's assistant. Daniel is Director of Operations at
 Turnkey Services. Your reply is READ OUT LOUD by his phone, so:
-- One to three short sentences. No lists, no markdown, no emoji, no URLs.
+- One to three short sentences, under 40 words. No lists, no markdown, no asterisks, no emoji, no URLs.
 - Say times the way a person would: "two thirty", "ten in the morning".
 - Answer first. Never recap what you looked up.
 - Never use an em dash or an en dash.
 - Only state what an action returned. Never invent a task, a meeting or a number.
+- Use the "day" and "over" fields as given. Never work out a weekday yourself.
 - If an action fails, say so plainly and say what it said.
 - To remove a task or a calendar event, call the delete action. Daniel is asked to
   confirm automatically, so do not ask him yourself.
@@ -221,6 +222,10 @@ async function quickAnswer(supabase, userId, text, tasks) {
 }
 
 // ------------------------------------------------------------ spoken replies
+/** Make AI text safe to read aloud: no markdown, no dashes, one paragraph. */
+export const spoken = (t) => String(t ?? "")
+  .replace(/[*_`#>]+/g, "").replace(DASHES, ", ")
+  .replace(/\s*\n+\s*/g, " ").replace(/\s+,/g, ",").replace(/ {2,}/g, " ").trim();
 const list = (xs) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
 const count = (n, one, many = `${one}s`) => `${n === 0 ? "no" : n === 1 ? "one" : n} ${n === 1 ? one : many}`;
 const spokenTime = (s) => s.replace(":00", "");
@@ -293,7 +298,8 @@ async function runTool(supabase, userId, name, a) {
       const open = tasks.data ?? [];
       return {
         today,
-        meetings: cal.ok ? cal.events.map((e) => ({ summary: e.summary, at: e.allDay ? "all day" : clockTime(e.start) }))
+        meetings: cal.ok ? cal.events.map((e) => ({ summary: e.summary, at: e.allDay ? "all day" : clockTime(e.start),
+          over: !e.allDay && new Date(e.end ?? e.start) < new Date() }))
                          : `calendar unavailable: ${cal.message}`,
         tasks_overdue: open.filter((x) => x.due_on && x.due_on < today).map((x) => x.title),
         tasks_due_today: open.filter((x) => x.due_on === today).map((x) => x.title),
@@ -330,8 +336,10 @@ async function runTool(supabase, userId, name, a) {
     case "list_calendar": {
       const start = /^\d{4}-\d{2}-\d{2}$/.test(a.start_date ?? "") ? a.start_date : today;
       const r = await eventsBetween(supabase, userId, start, Math.min(14, Math.max(1, Number(a.days) || 1)));
-      return r.ok ? { events: r.events.map((e) => ({ id: e.id, summary: e.summary,
-        when: e.allDay ? `${e.start} all day` : `${e.start.slice(0, 10)} ${clockTime(e.start)}` })) } : { error: r.message };
+      // `day` and `over` are spelled out so the model never has to work out a weekday.
+      return r.ok ? { now: nowInAustin(), events: r.events.map((e) => ({ id: e.id, summary: e.summary,
+        when: e.allDay ? `${e.start} all day` : `${e.start.slice(0, 10)} ${clockTime(e.start)}`,
+        day: spokenDay(e.start.slice(0, 10)), over: !e.allDay && new Date(e.end ?? e.start) < new Date() })) } : { error: r.message };
     }
     case "add_calendar_event": {
       const title = String(a.title ?? "").trim().slice(0, 200);
@@ -408,7 +416,7 @@ async function agent(supabase, userId, command, ctx, timing) {
         if (round === 0 && WRITES.test(command)) {
           return { ...say("I didn't change anything that time. Please say it again."), used, error: "write request, no action" };
         }
-        return { ...say(text || "Done."), used };
+        return { ...say(spoken(text) || "Done."), used };
       }
       messages.push({ role: "assistant", content: r.message.content ?? null, tool_calls: calls });
       const spoken = [];

@@ -62,3 +62,10 @@ assert.equal(speakTasks([{ title: "A", due_on: "2026-09-01" }, { title: "B" }], 
 assert.equal(speakEvents({ events: [] }, { label: "tomorrow", days: 1 }), "Tomorrow your calendar is clear.");
 assert.equal(speakEvents({ events: [{ summary: "TK", when: "2026-09-24 1:00 PM" }] }, { label: "tomorrow", days: 1 }), "Tomorrow you have one event: TK at 1 PM.");
 console.log("quick answers: all checks passed");
+
+// Spoken text: what the phone reads aloud must be one clean paragraph.
+import { spoken } from "../api/_lib/jarvis.js";
+const dash = String.fromCharCode(8212);
+assert.equal(spoken(`The **most overdue** task ${dash} due Sept 20.\n\nAlso #2.`), "The most overdue task, due Sept 20. Also 2.");
+assert.equal(spoken("Meet at 1 - bring notes"), "Meet at 1 - bring notes"); // a spaced hyphen is fine
+console.log("spoken text: all checks passed");

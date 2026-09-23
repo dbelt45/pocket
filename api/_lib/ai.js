@@ -20,7 +20,7 @@ export const JARVIS_MODELS = [
 
 export const KINDS = ["task", "followup", "note"];
 // En and em dash, written as character codes so this file contains neither.
-const DASHES = new RegExp(`[${String.fromCharCode(8211, 8212)}]`, "g");
+export const DASHES = new RegExp(`[${String.fromCharCode(8211, 8212)}]`, "g");
 
 /**
  * One chat completion. Walks the model list; throws only when all of them fail.
