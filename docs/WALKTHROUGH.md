@@ -54,15 +54,21 @@ second copy. That is the whole reason IDs are made on the phone.
 Only new notes queue offline. Marking old ones done needs a signal. Queueing
 edits too would mean handling conflicts, and I did not need that to use it.
 
-## 5. Sign-in: why a code and not a link or Google
+## 5. Sign-in: why you paste the link instead of tapping it
 
-On iPhone, the installed app and Safari keep **separate storage**. A magic link
-in an email opens Safari, so Safari gets signed in and the app does not. Google
+On iPhone, the installed app and Safari keep **separate storage**. Tapping a sign-in
+link in an email opens Safari, so Safari gets signed in and the app does not. Google
 sign-in has the same problem because it bounces out to Google's page and back.
-Typing a 6-digit code into the app itself avoids both.
 
-It is the same Supabase project as Daniel OS, and Supabase matches accounts by
-email, so it is the same me, the same user ID, and the same rows.
+So Pocket asks you to **copy** the link and paste it into the app. The link carries a
+one-time token; the app checks that token with Supabase itself, so the app is the one
+that gets signed in. The first plan was a typed 6-digit code, but Supabase only lets you
+put a code in the email if you connect your own email service (custom SMTP). Pasting
+the link needs no setup. The app still accepts a code if one is ever added.
+
+The link works once and expires after an hour. It is the same Supabase project as
+Daniel OS, and Supabase matches accounts by email, so it is the same me, the same user
+ID, and the same rows.
 
 ## 6. The AI feature
 

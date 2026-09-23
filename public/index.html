@@ -28,13 +28,13 @@
     </div>
 
     <section id="auth" hidden>
-      <p class="lead">Sign in with the email you use for Daniel OS. We'll send a 6-digit code.</p>
+      <p class="lead">Sign in with the email you use for Daniel OS. We'll email you a sign-in link to copy back here.</p>
       <form id="emailForm">
         <input id="email" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" required>
-        <button>Send code</button>
+        <button>Send link</button>
       </form>
       <form id="codeForm" hidden>
-        <input id="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,10}" placeholder="6-digit code" required>
+        <input id="code" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste the sign-in link" required>
         <button>Sign in</button>
       </form>
       <p id="authMsg" class="muted"></p>

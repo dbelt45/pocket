@@ -20,7 +20,7 @@ Live: _add the Vercel URL here once deployed_
 | Requirement | How Pocket meets it |
 |---|---|
 | Installable PWA, manifest and service worker, on iPhone home screen | `public/manifest.webmanifest`, `public/sw.js`, iOS tags in `public/index.html` |
-| Authentication and a persistent database | Supabase email code sign-in; `captures` table in Postgres with row-level security |
+| Authentication and a persistent database | Supabase email sign-in (link pasted into the app); `captures` table in Postgres with row-level security |
 | Sensible offline | Captures queue on the phone and send when a signal returns; last list and calendar shown as a "saved copy"; red Offline badge |
 | One meaningful AI feature | `/api/sort` sorts notes into task, follow-up or note. `/api/jarvis` turns speech into actions. Thoughts get a verdict and first steps |
 | One external API | Google Calendar: read, add and delete events; today's meetings at the top and in the morning message |
@@ -78,8 +78,9 @@ How it is built (`api/_lib/jarvis.js`):
    more so Google grants it.
    Needs the Daniel OS schema run first (Pocket reuses `tasks`, `events`,
    `integration_log`, `integration_tokens`).
-2. **Sign-in code.** Supabase, Authentication, Emails, **Magic Link** template.
-   Add `{{ .Token }}` to the body so the email contains the 6-digit code.
+2. **Sign-in.** Nothing to set up. Pocket emails the standard sign-in link; you copy it
+   (press and hold, Copy Link) and paste it into the app. A 6-digit code also works if you
+   add `{{ .Token }}` to the Magic Link template, which Supabase only allows with custom SMTP.
 3. **Settings.** Copy `.env.example` to `.env.local` and fill it in. Make push keys with
    `npx web-push generate-vapid-keys`, and a cron secret with any long random string.
 4. **Run locally.** `npm install`, `npm run dev`, open http://localhost:3001.
@@ -87,7 +88,7 @@ How it is built (`api/_lib/jarvis.js`):
 5. **Deploy.** Vercel, Add New Project, import this repo, framework **Other**,
    paste `.env.local` into Environment Variables, Deploy. Pushing to `main` redeploys.
 6. **Install.** On the iPhone open the URL in Safari, Share, Add to Home Screen.
-   Open it from the Home Screen, sign in, tap "Turn on morning reminder".
+   Open it from the Home Screen, sign in by pasting the emailed link, tap "Turn on morning reminder".
 
 ## Where secrets live
 

@@ -44,20 +44,35 @@ function show() {
 }
 
 // --------------------------------------------------------------------- auth
-// A typed code, not a magic link. On iPhone a link in an email opens in Safari,
-// which has separate storage from the installed app, so the app would never see
-// the login. A code typed into the app itself avoids that entirely.
+// The sign-in link is COPIED and pasted here, never tapped. On iPhone a tapped
+// link opens Safari, which has separate storage from the installed app, so the
+// app would never see the login. The link carries a one-time token; verifying
+// it here signs in the app itself. A 6-digit code works too, if the email
+// template ever includes one (Supabase only allows that with custom SMTP).
+export function readSignIn(text) {
+  let s = text.trim();
+  for (let i = 0; i < 3; i++) { try { s = decodeURIComponent(s); } catch { break; } } // unwraps Gmail's google.com/url?q=...
+  const hash = s.match(/[?&]token(?:_hash)?=([^&\s#]+)/);
+  if (hash) return { token_hash: hash[1], type: (s.match(/[?&]type=([a-z_]+)/) || [])[1] || "magiclink" };
+  if (/^\d{6,10}$/.test(s)) return { code: s };
+  return null;
+}
 $("#emailForm").onsubmit = async (e) => {
   e.preventDefault();
   $("#authMsg").textContent = "Sending...";
   const { error } = await sb.auth.signInWithOtp({ email: $("#email").value.trim(), options: { shouldCreateUser: false } });
-  $("#authMsg").textContent = error ? error.message : "Check your email for the code.";
+  $("#authMsg").textContent = error ? error.message : "Email sent. Do not tap the link. Press and hold it, tap Copy Link, then paste it below.";
   if (!error) { $("#codeForm").hidden = false; $("#code").focus(); }
 };
 $("#codeForm").onsubmit = async (e) => {
   e.preventDefault();
-  const { error } = await sb.auth.verifyOtp({ email: $("#email").value.trim(), token: $("#code").value.trim(), type: "email" });
-  $("#authMsg").textContent = error ? error.message : "";
+  const got = readSignIn($("#code").value);
+  if (!got) { $("#authMsg").textContent = "That does not look like the sign-in link. Copy the whole link from the email and paste it again."; return; }
+  $("#authMsg").textContent = "Signing in...";
+  const { error } = got.code
+    ? await sb.auth.verifyOtp({ email: $("#email").value.trim(), token: got.code, type: "email" })
+    : await sb.auth.verifyOtp({ token_hash: got.token_hash, type: got.type });
+  $("#authMsg").textContent = error ? `${error.message}. Links work once and expire after an hour, so send a new one if needed.` : "";
 };
 $("#signout").onclick = async () => { await sb.auth.signOut(); localStorage.removeItem(K.list); };
 
