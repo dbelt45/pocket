@@ -28,13 +28,19 @@
     </div>
 
     <section id="auth" hidden>
-      <p class="lead">Sign in with the email you use for Daniel OS. We'll email you a sign-in link to copy back here.</p>
+      <div id="handoff" hidden>
+        <p class="lead">Almost there. Copy this code, then open Pocket from your Home Screen and paste it.</p>
+        <p id="handoffCode" style="word-break:break-all;font:600 1.1rem ui-monospace,monospace;user-select:all"></p>
+        <button id="handoffCopy" type="button">Copy code</button>
+        <p class="muted"><button id="handoffHere" type="button" class="link">On a laptop? Use Pocket here instead</button></p>
+      </div>
+      <p class="lead" id="authLead">Sign in with the email you use for Daniel OS. We'll email you a link. Tap it once, and it shows a code to paste below.</p>
       <form id="emailForm">
         <input id="email" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" required>
         <button>Send link</button>
       </form>
-      <form id="codeForm" hidden>
-        <input id="code" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste the sign-in link" required>
+      <form id="codeForm">
+        <input id="code" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste the sign-in code" required>
         <button>Sign in</button>
       </form>
       <p id="authMsg" class="muted"></p>

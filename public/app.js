@@ -26,6 +26,21 @@ async function start() {
   cfg ??= read(K.cfg, null);
   if (!cfg?.supabaseUrl) { $("#auth").hidden = false; $("#authMsg").textContent = "Open Pocket once with a signal to finish setting up."; return; }
 
+  // Arrived from the tapped email link? Supabase puts the new session in the
+  // address after "#". On iPhone this lands in Safari, not the installed app,
+  // so show the refresh token as a code to paste into the app instead of
+  // signing Safari in. Nothing is stored here: if Safari kept and later
+  // refreshed the same token, Supabase would treat it as stolen and sign the
+  // app out too.
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.has("refresh_token") || h.has("error_code")) {
+    history.replaceState(null, "", location.pathname);
+    if (h.has("refresh_token")) return handoff(h, cfg);
+    $("#auth").hidden = false;
+    $("#authMsg").textContent = h.get("error_code") === "otp_expired"
+      ? "That email link was already used or expired. Send a new one and tap it once." : h.get("error_description");
+  }
+
   sb = supabase.createClient(cfg.supabaseUrl, cfg.supabaseKey);
   session = (await sb.auth.getSession()).data.session;
   sb.auth.onAuthStateChange((_e, s) => { const was = !!session; session = s; if (was !== !!s) show(); });
@@ -44,33 +59,53 @@ function show() {
 }
 
 // --------------------------------------------------------------------- auth
-// The sign-in link is COPIED and pasted here, never tapped. On iPhone a tapped
-// link opens Safari, which has separate storage from the installed app, so the
-// app would never see the login. The link carries a one-time token; verifying
-// it here signs in the app itself. A 6-digit code works too, if the email
-// template ever includes one (Supabase only allows that with custom SMTP).
+// On iPhone the installed app and Safari keep separate storage, and a tapped
+// email link opens Safari. So: tap the link, Safari shows a sign-in code
+// (handoff below), paste the code here. Do NOT press and hold the link: iOS
+// opens a preview, which uses up the one-time link before it can be pasted.
+// The box also accepts the link itself or a 6-digit code (if the email
+// template ever includes one; Supabase only allows that with custom SMTP).
 export function readSignIn(text) {
   let s = text.trim();
   for (let i = 0; i < 3; i++) { try { s = decodeURIComponent(s); } catch { break; } } // unwraps Gmail's google.com/url?q=...
   const hash = s.match(/[?&]token(?:_hash)?=([^&\s#]+)/);
   if (hash) return { token_hash: hash[1], type: (s.match(/[?&]type=([a-z_]+)/) || [])[1] || "magiclink" };
   if (/^\d{6,10}$/.test(s)) return { code: s };
+  if (/^[A-Za-z0-9_-]{8,200}$/.test(s)) return { refresh: s };
   return null;
 }
+
+function handoff(h, cfg) {
+  $("#auth").hidden = false;
+  $("#emailForm").hidden = $("#codeForm").hidden = $("#authLead").hidden = true;
+  $("#handoff").hidden = false;
+  $("#handoffCode").textContent = h.get("refresh_token");
+  $("#handoffCopy").onclick = async () => {
+    try { await navigator.clipboard.writeText(h.get("refresh_token")); $("#handoffCopy").textContent = "Copied"; }
+    catch { $("#handoffCopy").textContent = "Select the code and copy it"; }
+  };
+  $("#handoffHere").onclick = async () => { // on a laptop, just use Pocket in this browser
+    sb = supabase.createClient(cfg.supabaseUrl, cfg.supabaseKey);
+    await sb.auth.setSession({ access_token: h.get("access_token"), refresh_token: h.get("refresh_token") });
+    location.reload();
+  };
+}
+
 $("#emailForm").onsubmit = async (e) => {
   e.preventDefault();
   $("#authMsg").textContent = "Sending...";
-  const { error } = await sb.auth.signInWithOtp({ email: $("#email").value.trim(), options: { shouldCreateUser: false } });
-  $("#authMsg").textContent = error ? error.message : "Email sent. Do not tap the link. Press and hold it, tap Copy Link, then paste it below.";
+  const { error } = await sb.auth.signInWithOtp({ email: $("#email").value.trim(),
+    options: { shouldCreateUser: false, emailRedirectTo: `${location.origin}/` } });
+  $("#authMsg").textContent = error ? error.message : "Email sent. Tap the link in it once. It shows a code. Copy that code, come back here and paste it below.";
   if (!error) { $("#codeForm").hidden = false; $("#code").focus(); }
 };
 $("#codeForm").onsubmit = async (e) => {
   e.preventDefault();
   const got = readSignIn($("#code").value);
-  if (!got) { $("#authMsg").textContent = "That does not look like the sign-in link. Copy the whole link from the email and paste it again."; return; }
+  if (!got) { $("#authMsg").textContent = "That does not look like the sign-in code. Copy it again and paste it."; return; }
   $("#authMsg").textContent = "Signing in...";
-  const { error } = got.code
-    ? await sb.auth.verifyOtp({ email: $("#email").value.trim(), token: got.code, type: "email" })
+  const { error } = got.code ? await sb.auth.verifyOtp({ email: $("#email").value.trim(), token: got.code, type: "email" })
+    : got.refresh ? await sb.auth.refreshSession({ refresh_token: got.refresh })
     : await sb.auth.verifyOtp({ token_hash: got.token_hash, type: got.type });
   $("#authMsg").textContent = error ? `${error.message}. Links work once and expire after an hour, so send a new one if needed.` : "";
 };
