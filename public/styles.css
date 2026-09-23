@@ -1,3 +1,4 @@
+[hidden] { display: none !important; }
 /* Mobile first. Light, warm, big tap targets. System font so nothing downloads. */
 :root {
   --bg: #f6f3ec; --card: #fffdf8; --ink: #1d2320; --muted: #6b716d; --line: #e4dfd3;
