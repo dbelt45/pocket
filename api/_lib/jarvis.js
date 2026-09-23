@@ -224,7 +224,7 @@ async function quickAnswer(supabase, userId, text, tasks) {
 // ------------------------------------------------------------ spoken replies
 /** Make AI text safe to read aloud: no markdown, no dashes, one paragraph. */
 export const spoken = (t) => String(t ?? "")
-  .replace(/[*_`#>]+/g, "").replace(DASHES, ", ")
+  .replace(/(^|\n|:)[ \t]*\d{1,2}[.)][ \t]+/g, "$1 ").replace(/[*_`#>]+/g, "").replace(DASHES, ", ")
   .replace(/\s*\n+\s*/g, " ").replace(/\s+,/g, ",").replace(/ {2,}/g, " ").trim();
 const list = (xs) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
 const count = (n, one, many = `${one}s`) => `${n === 0 ? "no" : n === 1 ? "one" : n} ${n === 1 ? one : many}`;
@@ -419,7 +419,7 @@ async function agent(supabase, userId, command, ctx, timing) {
         return { ...say(spoken(text) || "Done."), used };
       }
       messages.push({ role: "assistant", content: r.message.content ?? null, tool_calls: calls });
-      const spoken = [];
+      const replies = [];
       for (const call of calls) {
         let a = {};
         try { a = JSON.parse(call.function.arguments || "{}"); } catch { /* run with no input */ }
@@ -429,11 +429,11 @@ async function agent(supabase, userId, command, ctx, timing) {
           return { ...(await askToDelete(supabase, userId, name, a)), used };
         }
         const result = await runTool(supabase, userId, name, a);
-        spoken.push(speakResult(name, result));
+        replies.push(speakResult(name, result));
         messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
       }
       // Every action had a plain result to report: done, no second AI call.
-      if (spoken.every(Boolean)) return { ...say(spoken.join(" ")), used };
+      if (replies.every(Boolean)) return { ...say(replies.join(" ")), used };
     }
     return { ...say("That took more steps than I allow at once. Try asking one thing at a time."), used };
   } catch (e) {

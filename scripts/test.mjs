@@ -68,4 +68,5 @@ import { spoken } from "../api/_lib/jarvis.js";
 const dash = String.fromCharCode(8212);
 assert.equal(spoken(`The **most overdue** task ${dash} due Sept 20.\n\nAlso #2.`), "The most overdue task, due Sept 20. Also 2.");
 assert.equal(spoken("Meet at 1 - bring notes"), "Meet at 1 - bring notes"); // a spaced hyphen is fine
+assert.equal(spoken("Two are tied:\n1. Get apps\n2. Fix the dashboard. Costs 3.5 hours."), "Two are tied: Get apps Fix the dashboard. Costs 3.5 hours."); // list numbers are not read aloud
 console.log("spoken text: all checks passed");

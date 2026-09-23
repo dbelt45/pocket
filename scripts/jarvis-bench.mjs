@@ -31,6 +31,8 @@ export const READ = [
   { text: "Read me my to-do list", want: ["list_tasks"] },
   { text: "What follow-ups do I have?", want: ["list_captures"] },
   { text: "How many meetings do I have this week?", want: ["list_calendar"] },
+  // Not a quick answer: keeps the AI path in every bench, so a crash there shows up.
+  { text: "Which of my tasks is the most overdue?", want: ["list_tasks"] },
 ];
 // Write phrases: models mode only (the action is chosen, never run). `args`
 // checks the details too: a right action with the wrong day is still wrong.
