@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Pocket</title>
+  <meta name="description" content="Capture anything on the go. AI sorts it into tasks, follow-ups and notes.">
+  <meta name="theme-color" content="#f6f3ec">
+  <!-- What makes it an installable app: the manifest, plus these tags iOS still reads -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Pocket">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="top">
+    <h1>Pocket</h1>
+    <span id="net" class="pill"></span>
+  </header>
+
+  <main>
+    <div id="install" class="banner" hidden>
+      To install: tap <b>Share</b>, then <b>Add to Home Screen</b>. Reminders only work from the installed app.
+    </div>
+
+    <section id="auth" hidden>
+      <p class="lead">Sign in with the email you use for Daniel OS. We'll send a 6-digit code.</p>
+      <form id="emailForm">
+        <input id="email" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" required>
+        <button>Send code</button>
+      </form>
+      <form id="codeForm" hidden>
+        <input id="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,10}" placeholder="6-digit code" required>
+        <button>Sign in</button>
+      </form>
+      <p id="authMsg" class="muted"></p>
+    </section>
+
+    <section id="app" hidden>
+      <div id="today" class="today"></div>
+
+      <form id="captureForm" class="capture">
+        <textarea id="body" rows="3" maxlength="4000"
+          placeholder="What's on your mind? Tap the mic on your keyboard to talk."></textarea>
+        <button id="save">Save</button>
+      </form>
+
+      <nav class="tabs" id="tabs">
+        <button data-f="all" class="on">All</button>
+        <button data-f="task">Tasks</button>
+        <button data-f="followup">Follow-ups</button>
+        <button data-f="note">Notes</button>
+        <button data-f="done">Done</button>
+      </nav>
+
+      <ul id="list" class="list"></ul>
+
+      <footer class="settings">
+        <div id="pushBox"></div>
+        <p id="stats" class="muted"></p>
+        <p id="msg" class="muted"></p>
+        <button id="signout" class="link">Sign out</button>
+      </footer>
+    </section>
+  </main>
+
+  <script src="/vendor/supabase.js"></script>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
