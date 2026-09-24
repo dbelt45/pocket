@@ -475,7 +475,7 @@ $("#siriOn").onclick = async () => {
   box.innerHTML = `<p><b>Your Siri key.</b> It is shown only this once.</p>
     <p class="key">${key}</p><button id="copyKey" class="secondary">Copy key</button>
     <ol>
-      <li>Open <b>Shortcuts</b>, tap <b>+</b>, name it <b>Jarvis</b>.</li>
+      <li>Open <b>Shortcuts</b>, tap <b>+</b>, name it <b>Ask Jarvis</b> (plain "Jarvis" sets off a built-in Siri joke).</li>
       <li>Add <b>Dictate Text</b>.</li>
       <li>Add <b>Get Contents of URL</b>. URL: <span class="key">${location.origin}/api/jarvis</span>
         Method <b>POST</b>. Add header <b>Authorization</b> with the value <b>Bearer</b>, a space, then paste the key.
@@ -483,7 +483,7 @@ $("#siriOn").onclick = async () => {
       <li>Add <b>Get Dictionary Value</b> for key <b>say</b>, then <b>Speak Text</b>.</li>
       <li>Add <b>Get Dictionary Value</b> for key <b>listen</b> from <b>Contents of URL</b>, then <b>If</b> it <b>has any value</b>,
         repeat steps 2 to 4 inside the If.</li>
-      <li>Say <b>"Hey Siri, Jarvis"</b>.</li>
+      <li>Say <b>"Hey Siri, ask Jarvis"</b>.</li>
     </ol>
     <p class="muted">Lost the key or the phone? Make a new key here, and delete the old row in Supabase (jarvis_tokens).</p>`;
   $("#copyKey").onclick = () => navigator.clipboard.writeText(key)

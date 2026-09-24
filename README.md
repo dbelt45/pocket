@@ -6,7 +6,7 @@ a to-do, "call the pastor back Friday" - and AI sorts it into a **task**, a
 in the Daniel OS task list. Every morning a notification says what is due and
 how the day looks.
 
-**Jarvis** is the voice. Tap the Jarvis button, or say "Hey Siri, Jarvis", and talk:
+**Jarvis** is the voice. Tap the Jarvis button, or say "Hey Siri, ask Jarvis", and talk:
 add or remove calendar events, add or remove tasks, hear your tasks and meetings read
 back, get a spoken summary of the day, or say **"Jarvis, I have a thought"** to save an
 idea to the Thoughts tab, where the AI says whether it is realistic and how to start.
@@ -72,7 +72,7 @@ How it is built (`api/_lib/jarvis.js`):
 - With no signal, whatever you said is saved as a note, never lost.
 - **Siri** uses a personal key (`pk_...`) because Siri cannot sign in. Only the key's
   SHA-256 fingerprint is stored in `jarvis_tokens`. Setup steps appear in the app under
-  "Set up Hey Siri, Jarvis".
+  "Set up Hey Siri, ask Jarvis".
 - **Reviewing thoughts from Claude Code:** `npm run thoughts` lists thoughts with no review;
   `npm run thoughts -- review <id> <file>` writes one back. It shows in the app as
   "Claude's review".
