@@ -13,7 +13,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(
 const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
 
-let sb, cfg, session, filter = "all", syncing = false;
+let sb, cfg, session, filter = null, syncing = false;
 
 // ------------------------------------------------------------------ startup
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
@@ -54,9 +54,9 @@ function show() {
   $("#moveBox").hidden = !(session && isIOS && !standalone);
   renderNet();
   if (!session) return;
-  render(); renderToday(); renderPush();
+  render(); renderToday();
   track("open", { standalone });
-  sync(); loadToday(); loadStats();
+  sync(); loadToday();
 }
 
 // --------------------------------------------------------------------- auth
@@ -124,14 +124,6 @@ $("#codeForm").onsubmit = async (e) => {
 $("#signout").onclick = async () => { await sb.auth.signOut(); localStorage.removeItem(K.list); };
 
 // ------------------------------------------------------------------ capture
-$("#captureForm").onsubmit = (e) => {
-  e.preventDefault();
-  const body = $("#body").value.trim();
-  if (!body) return;
-  $("#body").value = "";
-  queueCapture(body);
-};
-
 function queueCapture(body) {
   // The id is made here, on the phone. A retried upload reuses it, so the
   // database can tell a retry from a new note and never saves one twice.
@@ -204,9 +196,15 @@ function render() {
   renderNet();
   const today = new Date().toLocaleDateString("en-CA");
   const queued = read(K.outbox, []).map((q) => ({ ...q, kind: "unsorted", queued: true }));
-  let rows = [...queued, ...read(K.list, [])];
-  rows = filter === "done" ? rows.filter((r) => r.done_at)
-       : rows.filter((r) => !r.done_at && (filter === "all" ? r.kind !== "thought" : r.kind === filter));
+  const all = [...queued, ...read(K.list, [])];
+  const pick = (f) => f === "done" ? all.filter((r) => r.done_at)
+    : all.filter((r) => !r.done_at && (f === "all" ? r.kind !== "thought" : r.kind === f));
+  document.querySelectorAll("#tabs button").forEach((b) => { b.querySelector("b").textContent = pick(b.dataset.f).length; });
+  $("#tabs").hidden = $("#today").hidden = !!filter;
+  $("#section").hidden = !filter;
+  if (!filter) return;
+  $("#sectionTitle").textContent = $(`#tabs [data-f="${filter}"]`).firstChild.textContent;
+  const rows = pick(filter);
 
   $("#list").innerHTML = rows.length ? rows.map((r) => {
     const status = r.queued ? "Waiting for a signal"
@@ -227,17 +225,17 @@ function render() {
     </li>`;
   }).join("") : `<li class="empty">${filter === "done" ? "Nothing done yet."
       : filter === "thought" ? 'No thoughts yet. Tap Jarvis and say "I have a thought".'
-      : "Nothing here. Type something above."}</li>`;
+      : "Nothing here. Tap Jarvis to add something."}</li>`;
 }
 
 const fmtDate = (d) => new Date(`${d}T12:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 
 $("#tabs").onclick = (e) => {
-  const f = e.target.dataset?.f; if (!f) return;
+  const f = e.target.closest("button")?.dataset.f; if (!f) return;
   filter = f;
-  document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.f === f));
-  render();
+  render(); scrollTo(0, 0);
 };
+$("#back").onclick = () => { filter = null; render(); };
 
 // Changing a saved row needs the database, so these ask for a signal rather
 // than queueing. Only new captures are queued offline.
@@ -278,45 +276,6 @@ function renderToday() {
     ${items ? `<ul>${items}</ul>` : `<p class="muted">No meetings today.</p>`}`;
 }
 
-// ------------------------------------------------------------ notifications
-async function renderPush() {
-  const box = $("#pushBox");
-  if (!("PushManager" in window) || !("serviceWorker" in navigator)) {
-    box.innerHTML = `<p class="muted">${isIOS && !standalone ? "Add Pocket to your Home Screen to turn on the morning reminder." : "This browser cannot show reminders."}</p>`;
-    return;
-  }
-  const reg = await navigator.serviceWorker.ready;
-  const sub = await reg.pushManager.getSubscription();
-  box.innerHTML = sub && Notification.permission === "granted"
-    ? `<p>Morning reminder is on.</p><button id="pushTest" class="secondary">Send it now</button>`
-    : `<button id="pushOn" class="secondary">Turn on morning reminder</button>`;
-  $("#pushOn")?.addEventListener("click", enablePush);
-  $("#pushTest")?.addEventListener("click", async () => {
-    msg("Sending...");
-    const r = await api("/api/push-test", "POST");
-    msg(r.ok ? "Sent. It should appear in a few seconds." : `Did not send: ${r.message ?? `delivered ${r.delivered ?? 0} of ${r.subscribed ?? 0}`}`);
-  });
-}
-
-async function enablePush() {
-  // iOS only allows this from a tap, and only in the installed app.
-  const perm = await Notification.requestPermission();
-  if (perm !== "granted") return msg("Notifications are off. Turn them on in Settings, Notifications, Pocket.");
-  const reg = await navigator.serviceWorker.ready;
-  const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(cfg.vapidPublicKey) });
-  const j = sub.toJSON();
-  const { error } = await sb.from("push_subscriptions").upsert(
-    { endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, user_agent: navigator.userAgent });
-  if (error) return msg(`Could not save the reminder: ${error.message}`);
-  track("push_enabled");
-  renderPush();
-}
-
-function b64ToBytes(b64) {
-  const s = atob((b64 + "=".repeat((4 - (b64.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/"));
-  return Uint8Array.from(s, (c) => c.charCodeAt(0));
-}
-
 // ---------------------------------------------------------------- analytics
 // Same `events` table as Daniel OS, tagged app = pocket. Analytics never
 // blocks or breaks the app, so failures are ignored on purpose.
@@ -326,15 +285,6 @@ function track(name, meta = {}) {
     user_id: session.user.id, kind: name === "open" ? "page_view" : "action",
     name: `pocket:${name}`, path: location.pathname, meta: { app: "pocket", ...meta },
   }).then(() => {}, () => {});
-}
-
-async function loadStats() {
-  const since = new Date(Date.now() - 7 * 864e5).toISOString();
-  const [c, o] = await Promise.all([
-    sb.from("captures").select("id", { count: "exact", head: true }).gte("captured_at", since),
-    sb.from("events").select("id", { count: "exact", head: true }).eq("name", "pocket:open").gte("created_at", since),
-  ]);
-  if (!c.error && !o.error) $("#stats").textContent = `Last 7 days: ${c.count} capture${c.count === 1 ? "" : "s"}, ${o.count} open${o.count === 1 ? "" : "s"}.`;
 }
 
 function msg(t) { $("#msg").textContent = t; }
@@ -458,37 +408,6 @@ async function reply(text) {
     } catch { done(); }
   });
 }
-
-// --------------------------------------------------------------- siri setup
-// Siri cannot sign in, so it carries a personal key. The key is shown once and
-// only its fingerprint (SHA-256) is saved, like a password.
-$("#siriOn").onclick = async () => {
-  const bytes = crypto.getRandomValues(new Uint8Array(24));
-  const key = "pk_" + btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key));
-  const hash = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
-  const { error } = await sb.from("jarvis_tokens").insert({ token_hash: hash, label: `Siri ${new Date().toLocaleDateString()}` });
-  if (error) return msg(`Could not create the Siri key: ${error.message}`);
-  track("siri_key_created");
-  const box = $("#siriKey");
-  box.hidden = false;
-  box.innerHTML = `<p><b>Your Siri key.</b> It is shown only this once.</p>
-    <p class="key">${key}</p><button id="copyKey" class="secondary">Copy key</button>
-    <ol>
-      <li>Open <b>Shortcuts</b>, tap <b>+</b>, name it <b>Ask Jarvis</b> (plain "Jarvis" sets off a built-in Siri joke).</li>
-      <li>Add <b>Dictate Text</b>.</li>
-      <li>Add <b>Get Contents of URL</b>. URL: <span class="key">${location.origin}/api/jarvis</span>
-        Method <b>POST</b>. Add header <b>Authorization</b> with the value <b>Bearer</b>, a space, then paste the key.
-        Request Body <b>JSON</b>: key <b>text</b>, value <b>Dictated Text</b>.</li>
-      <li>Add <b>Get Dictionary Value</b> for key <b>say</b>, then <b>Speak Text</b>.</li>
-      <li>Add <b>Get Dictionary Value</b> for key <b>listen</b> from <b>Contents of URL</b>, then <b>If</b> it <b>has any value</b>,
-        repeat steps 2 to 4 inside the If.</li>
-      <li>Say <b>"Hey Siri, ask Jarvis"</b>.</li>
-    </ol>
-    <p class="muted">Lost the key or the phone? Make a new key here, and delete the old row in Supabase (jarvis_tokens).</p>`;
-  $("#copyKey").onclick = () => navigator.clipboard.writeText(key)
-    .then(() => msg("Key copied."), () => msg("Copy failed. Press and hold the key to copy it."));
-};
 
 
 start();

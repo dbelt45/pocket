@@ -54,22 +54,22 @@
       </div>
       <div id="today" class="today"></div>
 
-      <form id="captureForm" class="capture">
-        <textarea id="body" rows="3" maxlength="4000"
-          placeholder="What's on your mind? Tap the mic on your keyboard to talk."></textarea>
-        <button id="save">Save</button>
-      </form>
-
-      <nav class="tabs" id="tabs">
-        <button data-f="all" class="on">All</button>
-        <button data-f="task">Tasks</button>
-        <button data-f="followup">Follow-ups</button>
-        <button data-f="note">Notes</button>
-        <button data-f="thought">Thoughts</button>
-        <button data-f="done">Done</button>
+      <nav class="tiles" id="tabs">
+        <button data-f="task">Tasks<b></b></button>
+        <button data-f="followup">Follow-ups<b></b></button>
+        <button data-f="note">Notes<b></b></button>
+        <button data-f="thought">Thoughts<b></b></button>
+        <button data-f="all" class="small">All<b></b></button>
+        <button data-f="done" class="small">Done<b></b></button>
       </nav>
 
-      <ul id="list" class="list"></ul>
+      <div id="section" hidden>
+        <div class="section-head">
+          <button id="back" class="secondary" type="button">Back</button>
+          <h2 id="sectionTitle"></h2>
+        </div>
+        <ul id="list" class="list"></ul>
+      </div>
 
       <button id="jarvisBtn" class="fab" aria-label="Talk to Jarvis">Jarvis</button>
 
@@ -89,12 +89,6 @@
       </div>
 
       <footer class="settings">
-        <div id="pushBox"></div>
-        <div id="siriBox">
-          <button id="siriOn" class="secondary">Set up "Hey Siri, ask Jarvis"</button>
-          <div id="siriKey" class="banner" hidden></div>
-        </div>
-        <p id="stats" class="muted"></p>
         <p id="msg" class="muted"></p>
         <button id="signout" class="link">Sign out</button>
       </footer>
