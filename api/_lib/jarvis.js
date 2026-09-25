@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { complete, giveFeedback, JARVIS_MODELS, DASHES } from "./ai.js";
 import { TZ, todayInAustin, logCall } from "./supabase.js";
 import { eventsBetween, addEvent, getEvent, deleteEvent, addDays } from "./calendar.js";
+import { slackText, sendToRicky } from "./slack.js";
 
 // Jarvis: turns one spoken sentence into an answer, and sometimes an action.
 //
@@ -17,13 +18,13 @@ import { eventsBetween, addEvent, getEvent, deleteEvent, addDays } from "./calen
 //    His open tasks are in the prompt, so "check off X" is one AI call, and the
 //    reply after a simple action is written by code, not a second AI call.
 //
-// Deleting anything is never done in one step. Jarvis asks first, and only a
+// Deleting anything, or sending anything to Slack, is never done in one step. Jarvis asks first, and only a
 // "yes" on the next sentence carries it out. A misheard word cannot wipe out a
 // meeting.
 
 export const WAKE = /^\s*(hey|ok|okay)?[\s,]*jarvis[\s,.!:-]*/i;
 export const THOUGHT = /^\s*(hey|ok|okay)?[\s,]*(jarvis[\s,.!:-]*)?i(\s+(have|had|got)|['’]ve(\s+got)?)\s+(a|an)\s+(thought|idea)\b[\s,.:!-]*/i;
-export const YES = /^\s*(yes|yeah|yep|yup|sure|correct|do it|go ahead|confirm|please do|delete it|remove it)\b/i;
+export const YES = /^\s*(yes|yeah|yep|yup|sure|correct|do it|go ahead|confirm|please do|delete it|remove it|send it)\b/i;
 const WAIT_MINUTES = 2;
 
 const SPOKEN = `You are Jarvis, Daniel Belt's assistant. Daniel is Director of Operations at
@@ -37,6 +38,8 @@ Turnkey Services. Your reply is READ OUT LOUD by his phone, so:
 - If an action fails, say so plainly and say what it said.
 - To remove a task or a calendar event, call the delete action. Daniel is asked to
   confirm automatically, so do not ask him yourself.
+- To send anything to Ricky on Slack, call send_to_ricky. Daniel is asked to confirm
+  automatically, so do not ask him yourself.
 - "My to-do list" means his tasks. "Remove" or "take off" a task means delete it.
   "Done", "finished" or "check off" means complete it.`;
 
@@ -81,6 +84,10 @@ export const TOOLS = [
   }, ["title"]),
   fn("delete_calendar_event", "Remove an event from Google Calendar. Use the id from the calendar in your instructions, or from list_calendar. Daniel will be asked to confirm.",
     { event_id: { type: "string" } }, ["event_id"]),
+  fn("send_to_ricky", "Send Daniel's Pocket items and/or a short note to Ricky as a Slack DM. Use for 'send my follow-ups to Ricky', 'Slack Ricky my notes', 'tell Ricky on Slack that...'. Daniel will be asked to confirm.", {
+    kind: { type: "string", enum: ["task", "followup", "note", "thought"], description: "Which open Pocket items to send, if any." },
+    message: { type: "string", description: "A note to Ricky in Daniel's words, if he gave one. Leave out if he only asked to send items." },
+  }),
   fn("list_captures", "Things Daniel captured in Pocket: follow-ups, notes or thoughts.", {
     kind: { type: "string", enum: ["followup", "note", "thought"] },
   }, ["kind"]),
@@ -132,7 +139,7 @@ export async function handle(supabase, userId, rawText) {
   if (state?.awaiting === "thought") return done(await saveThought(supabase, userId, command), "thought");
   if (state?.awaiting === "confirm") {
     if (!YES.test(text)) return done(say("Okay, I left it alone."), "confirm");
-    return done(await runDelete(supabase, userId, state.payload), "confirm");
+    return done(await runConfirmed(supabase, userId, state.payload), "confirm");
   }
 
   const t = text.match(THOUGHT);
@@ -172,7 +179,7 @@ async function saveThought(supabase, userId, body) {
 // ------------------------------------------------------- answers with no AI
 // Plain questions about his own data are answered straight from the data.
 // Anything that changes something, or does not clearly match, goes to the AI.
-export const WRITES = /\b(add|put|create|make|remove|delete|cancel|clear|take\b.*\boff|check\b.*\boff|complete|mark|finish|move|reschedule|change|rename|book|set up)\b/i;
+export const WRITES = /\b(add|put|create|make|remove|delete|cancel|clear|send|slack|take\b.*\boff|check\b.*\boff|complete|mark|finish|move|reschedule|change|rename|book|set up)\b/i;
 const QUESTION = /^\s*(what|what's|whats|what are|how many|how's|hows|how is|how does|do i|did i|is there|are there|any|anything|read|tell me|give me|list|show|go over|run through|summari[sz]e|brief me)\b/i;
 const CALENDAR_WORDS = /\b(calendar|schedule|meeting|meetings|event|events|appointment|appointments|agenda|o'?clock|\d{1,2}(:\d\d)?\s*(am|pm|a\.m\.|p\.m\.))(?=\W|$)/i;
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
@@ -382,7 +389,31 @@ async function askToDelete(supabase, userId, name, a) {
   return say(`Just to be sure, delete ${label}?`, true);
 }
 
-async function runDelete(supabase, userId, p) {
+/** Build the Slack message, read it back, and ask. Nothing is sent here. */
+async function askToSend(supabase, userId, a) {
+  const kind = ["task", "followup", "note", "thought"].includes(a.kind) ? a.kind : null;
+  const note = String(a.message ?? "").trim().slice(0, 2000);
+  let items = [];
+  if (kind) {
+    const { data, error } = await supabase.from("captures").select("title, body, due_on")
+      .eq("user_id", userId).eq("kind", kind).is("done_at", null).order("captured_at").limit(30);
+    if (error) return say(`I couldn't read your list. ${error.message}`);
+    items = data.map((c) => ({ text: c.title || c.body, due_on: c.due_on }));
+  }
+  const word = { task: "task", followup: "follow-up", note: "note", thought: "thought" }[kind];
+  if (!items.length && !note) return say(kind ? `You have no open ${word}s, so there's nothing to send.` : "What should I send Ricky?");
+  await setState(supabase, userId, "confirm", { kind: "slack", text: slackText(kind, items, note) });
+  const what = items.length
+    ? `${count(items.length, word)}: ${list(items.slice(0, 3).map((i) => i.text))}${items.length > 3 ? `, plus ${items.length - 3} more` : ""}${note ? ", with your note" : ""}`
+    : `"${note}"`;
+  return say(`I'll send Ricky ${what}. Send it?`, true);
+}
+
+async function runConfirmed(supabase, userId, p) {
+  if (p?.kind === "slack") {
+    const r = await sendToRicky(supabase, userId, p.text);
+    return say(r.ok ? "Sent to Ricky on Slack." : `That didn't send. ${r.message}`);
+  }
   if (p?.kind === "task") {
     await supabase.from("captures").delete().eq("task_id", p.id).eq("user_id", userId);
     const { error } = await supabase.from("tasks").delete().eq("id", p.id).eq("user_id", userId);
@@ -392,7 +423,7 @@ async function runDelete(supabase, userId, p) {
     const r = await deleteEvent(supabase, userId, p.id);
     return say(r.ok ? `Done. I deleted ${p.label}.` : `That didn't work. ${r.message}`);
   }
-  return say("I lost track of what to delete, so nothing changed.");
+  return say("I lost track of what you meant, so nothing changed.");
 }
 
 // --------------------------------------------------------------- the AI loop
@@ -425,6 +456,7 @@ async function agent(supabase, userId, command, ctx, timing) {
         try { a = JSON.parse(call.function.arguments || "{}"); } catch { /* run with no input */ }
         const name = call.function.name;
         used.push(name);
+        if (name === "send_to_ricky") return { ...(await askToSend(supabase, userId, a)), used };
         if (name === "delete_task" || name === "delete_calendar_event") {
           return { ...(await askToDelete(supabase, userId, name, a)), used };
         }

@@ -70,3 +70,11 @@ assert.equal(spoken(`The **most overdue** task ${dash} due Sept 20.\n\nAlso #2.`
 assert.equal(spoken("Meet at 1 - bring notes"), "Meet at 1 - bring notes"); // a spaced hyphen is fine
 assert.equal(spoken("Two are tied:\n1. Get apps\n2. Fix the dashboard. Costs 3.5 hours."), "Two are tied: Get apps Fix the dashboard. Costs 3.5 hours."); // list numbers are not read aloud
 console.log("spoken text: all checks passed");
+
+// The Slack message Jarvis sends to Ricky. It must always carry the signature.
+import { slackText, SIGNATURE } from "../api/_lib/slack.js";
+assert.equal(slackText("followup", [{ text: "Call Tim", due_on: "2026-09-26" }, { text: "Email Brandi" }]),
+  `*Follow-ups*\n• Call Tim (due 2026-09-26)\n• Email Brandi\n\n${SIGNATURE}`);
+assert.equal(slackText(null, [], "Running 10 late"), `Running 10 late\n\n${SIGNATURE}`);
+assert.ok(YES.test("send it") && YES.test("Yes"));
+console.log("slack message: all checks passed");
