@@ -187,7 +187,7 @@ addEventListener("offline", renderNet);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState !== "visible" || !session) return;
   sync();
-  if (Date.now() - (read(K.today, {}).at ?? 0) > 15 * 60e3) loadToday();
+  loadToday(); // every time, so an event added anywhere shows up at once
 });
 
 // ------------------------------------------------------------------- render
@@ -398,6 +398,7 @@ async function ask(text) {
   }).then((x) => x.json()).catch(() => ({ say: "I couldn't reach the server. Try again in a moment." }));
   await reply(r.say ?? "Something went wrong on my side.");
   loadList().then(render).catch(() => {});
+  loadToday(); // he may have just added or removed a calendar event
   // He asked a question ("What are you thinking?", "delete X?"), so listen for the answer.
   if (r.listen) SR ? talk() : $("#jText").focus();
 }

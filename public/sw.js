@@ -11,7 +11,7 @@
 // 2. NOTIFICATIONS. It receives the morning push and shows it, even when
 //    Pocket is closed.
 
-const VERSION = "pocket-v11"; // bump to force every phone to take a fresh copy
+const VERSION = "pocket-v12"; // bump to force every phone to take a fresh copy
 const SHELL = [
   "/", "/app.js", "/styles.css", "/vendor/supabase.js", "/manifest.webmanifest",
   "/icons/icon-192.png", "/icons/icon-512.png", "/icons/apple-touch-icon.png",
