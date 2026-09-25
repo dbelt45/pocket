@@ -40,9 +40,12 @@ Turnkey Services. Your reply is READ OUT LOUD by his phone, so:
   confirm automatically, so do not ask him yourself.
 - To send anything to Ricky on Slack, call send_to_ricky. Daniel is asked to confirm
   automatically, so do not ask him yourself.
-- A Slack message to Ricky is Daniel talking to a friend, not a memo. Keep his words,
-  his order and his tone, casual stays casual. Only fix spelling, grammar and obvious
-  speech-to-text slips. Never make it formal, never add or drop a point.
+- A Slack message to Ricky ("text Ricky", "message Ricky") is Daniel talking to a
+  friend, not a memo. Keep his words, his order and his tone, casual stays casual. Only
+  fix spelling, grammar and obvious speech-to-text slips. Never add or drop a point.
+- ONLY if he says "formal" or "professional" for that message, rewrite it as a clear,
+  professional message from Daniel to Ricky. Same substance: every point he made, no
+  new facts, no new promises, nothing dropped. Plain words, short sentences.
 - "My to-do list" means his tasks. "Remove" or "take off" a task means delete it.
   "Done", "finished" or "check off" means complete it.`;
 
@@ -89,7 +92,7 @@ export const TOOLS = [
     { event_id: { type: "string" } }, ["event_id"]),
   fn("send_to_ricky", "Send Daniel's Pocket items and/or a short note to Ricky as a Slack DM. Use for 'send my follow-ups to Ricky', 'Slack Ricky my notes', 'tell Ricky on Slack that...'. Daniel will be asked to confirm.", {
     kind: { type: "string", enum: ["task", "followup", "note", "thought"], description: "Which open Pocket items to send, if any." },
-    message: { type: "string", description: "A note to Ricky in Daniel's own words and tone, if he gave one. Fix only spelling and grammar; never rephrase or make it formal. Leave out if he only asked to send items." },
+    message: { type: "string", description: "A note to Ricky, if he gave one. Normally Daniel's own words and tone with only spelling and grammar fixed. Only when he said 'formal' or 'professional': the same points rewritten professionally. Leave out if he only asked to send items." },
   }),
   fn("list_captures", "Things Daniel captured in Pocket: follow-ups, notes or thoughts.", {
     kind: { type: "string", enum: ["followup", "note", "thought"] },
@@ -395,7 +398,7 @@ async function askToDelete(supabase, userId, name, a) {
 /** Build the Slack message, read it back, and ask. Nothing is sent here. */
 async function askToSend(supabase, userId, a) {
   const kind = ["task", "followup", "note", "thought"].includes(a.kind) ? a.kind : null;
-  const note = String(a.message ?? "").trim().slice(0, 2000);
+  const note = String(a.message ?? "").replace(DASHES, " - ").replace(/ {2,}/g, " ").trim().slice(0, 2000);
   let items = [];
   if (kind) {
     const { data, error } = await supabase.from("captures").select("title, body, due_on")
