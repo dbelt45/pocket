@@ -214,7 +214,8 @@ function render() {
   if (!filter) return;
   $("#addBtn").hidden = filter === "done";
   $("#sectionTitle").textContent = $(`#tabs [data-f="${filter}"]`).firstChild.textContent;
-  const rows = pick(filter);
+  // Oldest first, so a new one lands at the bottom, next to the + (Daniel, 2026-09-25).
+  const rows = pick(filter).reverse();
 
   $("#list").innerHTML = rows.length ? rows.map((r) => {
     const status = r.queued ? "Waiting for a signal"
@@ -254,9 +255,10 @@ $("#addBtn").onclick = () => {
   $("#addForm").hidden = false;
   $("#addText").placeholder = HINT[filter];
   $("#addDueRow").hidden = !["task", "followup"].includes(filter);
+  $("#addBtn").hidden = true;
   $("#addText").focus();
 };
-function closeAdd() { $("#addForm").hidden = true; $("#addText").value = ""; $("#addDue").value = ""; }
+function closeAdd() { $("#addForm").hidden = true; $("#addBtn").hidden = filter === "done"; $("#addText").value = ""; $("#addDue").value = ""; }
 $("#addCancel").onclick = closeAdd;
 $("#addForm").onsubmit = (e) => {
   e.preventDefault();

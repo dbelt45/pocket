@@ -58,7 +58,7 @@
         <button data-f="task">Tasks<b></b></button>
         <button data-f="followup">Follow-ups<b></b></button>
         <button data-f="note">Notes<b></b></button>
-        <button data-f="thought">Thoughts<b></b></button>
+        <button data-f="thought">My thoughts<b></b></button>
         <button data-f="all" class="small">All<b></b></button>
         <button data-f="done" class="small">Done<b></b></button>
       </nav>
@@ -67,8 +67,9 @@
         <div class="section-head">
           <button id="back" class="secondary" type="button">Back</button>
           <h2 id="sectionTitle"></h2>
-          <button id="addBtn" class="plus" type="button" aria-label="Add">+</button>
         </div>
+        <ul id="list" class="list"></ul>
+        <button id="addBtn" class="plus" type="button" aria-label="Add">+</button>
         <form id="addForm" hidden>
           <textarea id="addText" rows="3" maxlength="4000"></textarea>
           <label id="addDueRow" class="muted">Due (optional) <input id="addDue" type="date"></label>
@@ -77,7 +78,6 @@
             <button id="addCancel" type="button" class="secondary">Cancel</button>
           </div>
         </form>
-        <ul id="list" class="list"></ul>
       </div>
 
       <button id="jarvisBtn" class="fab" aria-label="Talk to Jarvis">Jarvis</button>

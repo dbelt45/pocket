@@ -64,7 +64,8 @@ form { display: grid; gap: 8px; margin-bottom: 12px; }
 .tiles button.small { min-height: 0; flex-direction: row; align-items: center; font-size: 15px; padding: 12px 16px; }
 .tiles button.small b { font-size: 18px; }
 .section-head { display: flex; align-items: center; gap: 12px; margin: 4px 0 12px; }
-.section-head .plus { margin-left: auto; width: 44px; padding: 0; font-size: 26px; line-height: 1; border-radius: 99px; }
+#addForm { margin-top: 8px; }
+.plus { display: block; margin-top: 8px; width: 44px; padding: 0; font-size: 26px; line-height: 1; border-radius: 99px; }
 #addDueRow { display: grid; gap: 4px; }
 .section-head h2 { margin: 0; font-size: 22px; letter-spacing: -0.02em; }
 
@@ -95,7 +96,11 @@ form { display: grid; gap: 8px; margin-bottom: 12px; }
 .him { margin: 0; font-size: 19px; font-weight: 600; min-height: 1.4em; }
 form.inline { grid-template-columns: 1fr auto; margin: 0; }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-main { padding-bottom: 96px; }
+main { padding-bottom: 8px; }
+/* Sign out sits at the very bottom of the screen, even when the page is short. */
+#app:not([hidden]) { display: flex; flex-direction: column; min-height: calc(100dvh - 70px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+.settings { margin-top: auto; padding-bottom: 12px; }
+#tabs, #section { margin-bottom: 24px; }
 
 /* Thoughts */
 .list li.thought { border-left-color: var(--thought); border-left-style: dashed; }
