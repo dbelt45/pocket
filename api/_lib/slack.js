@@ -4,7 +4,10 @@ import { logCall } from "./supabase.js";
 // Slack: sends a message from Daniel to his DM with Ricky. It uses Daniel's own
 // Slack user token (SLACK_USER_TOKEN), so it shows up from him, and every
 // message ends with "Sent by Daniel via Jarvis" so Ricky knows how it got there.
-// Posting to Ricky's user id with a user token lands in their existing DM.
+// It posts into their existing DM by its conversation id. Posting to Ricky's
+// user id instead fails with channel_not_found on a user token (2026-09-25).
+// The id is not a secret; it is the "D..." in any Open in Slack link from that DM.
+const RICKY_DM = "D0B6TN2TVUH";
 // Jarvis always reads the message back and waits for a "yes" before this runs.
 
 export const SIGNATURE = "_Sent by Daniel via Jarvis_";
@@ -22,13 +25,13 @@ export function slackText(kind, items = [], note = "") {
 }
 
 export async function sendToRicky(supabase, userId, text) {
-  const token = process.env.SLACK_USER_TOKEN, ricky = process.env.SLACK_RICKY_USER_ID;
-  if (!token || !ricky) return { ok: false, message: "Slack is not set up yet. It needs SLACK_USER_TOKEN and SLACK_RICKY_USER_ID in Vercel." };
+  const token = process.env.SLACK_USER_TOKEN;
+  if (!token) return { ok: false, message: "Slack is not set up yet. It needs SLACK_USER_TOKEN in Vercel." };
   try {
     const r = await fetch("https://slack.com/api/chat.postMessage", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json; charset=utf-8" },
-      body: JSON.stringify({ channel: ricky, text, unfurl_links: false }),
+      body: JSON.stringify({ channel: RICKY_DM, text, unfurl_links: false }),
     }).then((x) => x.json());
     await logCall(supabase, userId, "slack", r.ok, 200, `[pocket] DM to Ricky: ${r.ok ? "sent" : r.error}`);
     return r.ok ? { ok: true } : { ok: false, message: `Slack said ${r.error}.` };
