@@ -67,7 +67,16 @@
         <div class="section-head">
           <button id="back" class="secondary" type="button">Back</button>
           <h2 id="sectionTitle"></h2>
+          <button id="addBtn" class="plus" type="button" aria-label="Add">+</button>
         </div>
+        <form id="addForm" hidden>
+          <textarea id="addText" rows="3" maxlength="4000"></textarea>
+          <label id="addDueRow" class="muted">Due (optional) <input id="addDue" type="date"></label>
+          <div class="row">
+            <button>Save</button>
+            <button id="addCancel" type="button" class="secondary">Cancel</button>
+          </div>
+        </form>
         <ul id="list" class="list"></ul>
       </div>
 

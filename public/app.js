@@ -124,10 +124,10 @@ $("#codeForm").onsubmit = async (e) => {
 $("#signout").onclick = async () => { await sb.auth.signOut(); localStorage.removeItem(K.list); };
 
 // ------------------------------------------------------------------ capture
-function queueCapture(body) {
+function queueCapture(body, extra = {}) {
   // The id is made here, on the phone. A retried upload reuses it, so the
   // database can tell a retry from a new note and never saves one twice.
-  const item = { id: crypto.randomUUID(), body, captured_at: new Date().toISOString() };
+  const item = { id: crypto.randomUUID(), body, captured_at: new Date().toISOString(), ...extra };
   write(K.outbox, [...read(K.outbox, []), item]);
   render();
   track("capture", { offline: !navigator.onLine, chars: body.length });
@@ -145,7 +145,16 @@ async function sync() {
   if (syncing || !session || !navigator.onLine) return;
   syncing = true; renderNet(); msg("");
   try {
-    const box = read(K.outbox, []);
+    let box = read(K.outbox, []);
+    // A task typed straight into Tasks also goes on the Daniel OS task list,
+    // as a sorted one does. The task id is saved first so a retry never adds it twice.
+    for (const b of box.filter((b) => b.kind === "task" && !b.task_id)) {
+      const { data, error } = await sb.from("tasks")
+        .insert({ user_id: session.user.id, title: b.title, due_on: b.due_on ?? null, priority: 3 }).select("id").single();
+      if (error) throw new Error(`Could not add the task: ${error.message}`);
+      box = read(K.outbox, []).map((q) => q.id === b.id ? { ...q, task_id: data.id } : q);
+      write(K.outbox, box);
+    }
     if (box.length) {
       const { error } = await sb.from("captures").upsert(box, { onConflict: "id", ignoreDuplicates: true });
       if (error) throw new Error(`Could not save to the database: ${error.message}`);
@@ -195,7 +204,7 @@ const LABEL = { task: "Task", followup: "Follow-up", note: "Note", thought: "Tho
 function render() {
   renderNet();
   const today = new Date().toLocaleDateString("en-CA");
-  const queued = read(K.outbox, []).map((q) => ({ ...q, kind: "unsorted", queued: true }));
+  const queued = read(K.outbox, []).map((q) => ({ kind: "unsorted", ...q, queued: true }));
   const all = [...queued, ...read(K.list, [])];
   const pick = (f) => f === "done" ? all.filter((r) => r.done_at)
     : all.filter((r) => !r.done_at && (f === "all" ? r.kind !== "thought" : r.kind === f));
@@ -203,6 +212,7 @@ function render() {
   $("#tabs").hidden = $("#today").hidden = !!filter;
   $("#section").hidden = !filter;
   if (!filter) return;
+  $("#addBtn").hidden = filter === "done";
   $("#sectionTitle").textContent = $(`#tabs [data-f="${filter}"]`).firstChild.textContent;
   const rows = pick(filter);
 
@@ -224,8 +234,7 @@ function render() {
       <div class="actions">${actions}${r.queued ? "" : `<button data-a="del" data-id="${r.id}" class="link">Delete</button>`}</div>
     </li>`;
   }).join("") : `<li class="empty">${filter === "done" ? "Nothing done yet."
-      : filter === "thought" ? 'No thoughts yet. Tap Jarvis and say "I have a thought".'
-      : "Nothing here. Tap Jarvis to add something."}</li>`;
+      : "Nothing here."}</li>`;
 }
 
 const fmtDate = (d) => new Date(`${d}T12:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
@@ -235,7 +244,28 @@ $("#tabs").onclick = (e) => {
   filter = f;
   render(); scrollTo(0, 0);
 };
-$("#back").onclick = () => { filter = null; render(); };
+$("#back").onclick = () => { filter = null; closeAdd(); render(); };
+
+// Typing straight into a section. It saves as that kind, so the AI does not
+// re-sort it. In All there is no kind to pick, so the AI sorts it as before.
+const HINT = { task: "New task", followup: "Who to follow up with, and about what", note: "New note",
+  thought: "What's the thought?", all: "Anything. AI sorts it." };
+$("#addBtn").onclick = () => {
+  $("#addForm").hidden = false;
+  $("#addText").placeholder = HINT[filter];
+  $("#addDueRow").hidden = !["task", "followup"].includes(filter);
+  $("#addText").focus();
+};
+function closeAdd() { $("#addForm").hidden = true; $("#addText").value = ""; $("#addDue").value = ""; }
+$("#addCancel").onclick = closeAdd;
+$("#addForm").onsubmit = (e) => {
+  e.preventDefault();
+  const body = $("#addText").value.trim(); if (!body) return;
+  const due_on = $("#addDue").value || null;
+  queueCapture(body, filter === "all" ? {} : { kind: filter, title: body, ai_status: "done", ai_note: "Typed in Pocket",
+    ...(["task", "followup"].includes(filter) && { due_on }) });
+  closeAdd();
+};
 
 // Changing a saved row needs the database, so these ask for a signal rather
 // than queueing. Only new captures are queued offline.
