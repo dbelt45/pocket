@@ -78,3 +78,15 @@ assert.equal(slackText("followup", [{ text: "Call Tim", due_on: "2026-09-26" }, 
 assert.equal(slackText(null, [], "Running 10 late"), `Running 10 late\n\n${SIGNATURE}`);
 assert.ok(YES.test("send it") && YES.test("Yes"));
 console.log("slack message: all checks passed");
+
+// Save to Pocket refuses anything Slack did not sign, or signed too long ago.
+import { createHmac } from "node:crypto";
+import { verifySlack } from "../api/_lib/slack.js";
+const secret = "s3cret", ts = "1790000000", body = "payload=%7B%7D";
+const sig = "v0=" + createHmac("sha256", secret).update(`v0:${ts}:${body}`).digest("hex");
+assert.ok(verifySlack(body, ts, sig, secret, 1790000000_000));
+assert.ok(!verifySlack(body + "x", ts, sig, secret, 1790000000_000), "tampered body");
+assert.ok(!verifySlack(body, ts, sig, "wrong", 1790000000_000), "wrong secret");
+assert.ok(!verifySlack(body, ts, sig, secret, 1790000900_000), "too old");
+assert.ok(!verifySlack(body, ts, sig, undefined, 1790000000_000), "no secret set");
+console.log("slack signature: all checks passed");

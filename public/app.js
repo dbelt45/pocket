@@ -10,6 +10,8 @@ const K = { outbox: "pocket.outbox", list: "pocket.list", today: "pocket.today",
 const read = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
 const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage full or blocked */ } };
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+// "From Slack: <link>" becomes a tappable "Open in Slack". Runs on already-escaped text.
+const linkify = (h) => h.replace(/https:\/\/[\w-]+\.slack\.com\/archives\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">Open in Slack</a>`);
 const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
 
@@ -229,8 +231,8 @@ function render() {
          <button data-a="done" data-id="${r.id}">Done</button>`;
     return `<li class="${r.kind}">
       <div class="meta"><span class="kind">${LABEL[r.kind]}</span>${due}${status ? `<span class="status">${status}</span>` : ""}</div>
-      <p class="title">${esc(r.title || r.body)}</p>
-      ${r.title && r.title !== r.body ? `<p class="body">${esc(r.body)}</p>` : ""}
+      <p class="title">${linkify(esc(r.title || r.body))}</p>
+      ${r.title && r.title !== r.body ? `<p class="body">${linkify(esc(r.body))}</p>` : ""}
       ${r.kind === "thought" ? feedbackHtml(r) : ""}
       <div class="actions">${actions}${r.queued ? "" : `<button data-a="del" data-id="${r.id}" class="link">Delete</button>`}</div>
     </li>`;
