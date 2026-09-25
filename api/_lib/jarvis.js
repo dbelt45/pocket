@@ -40,6 +40,9 @@ Turnkey Services. Your reply is READ OUT LOUD by his phone, so:
   confirm automatically, so do not ask him yourself.
 - To send anything to Ricky on Slack, call send_to_ricky. Daniel is asked to confirm
   automatically, so do not ask him yourself.
+- A Slack message to Ricky is Daniel talking to a friend, not a memo. Keep his words,
+  his order and his tone, casual stays casual. Only fix spelling, grammar and obvious
+  speech-to-text slips. Never make it formal, never add or drop a point.
 - "My to-do list" means his tasks. "Remove" or "take off" a task means delete it.
   "Done", "finished" or "check off" means complete it.`;
 
@@ -86,7 +89,7 @@ export const TOOLS = [
     { event_id: { type: "string" } }, ["event_id"]),
   fn("send_to_ricky", "Send Daniel's Pocket items and/or a short note to Ricky as a Slack DM. Use for 'send my follow-ups to Ricky', 'Slack Ricky my notes', 'tell Ricky on Slack that...'. Daniel will be asked to confirm.", {
     kind: { type: "string", enum: ["task", "followup", "note", "thought"], description: "Which open Pocket items to send, if any." },
-    message: { type: "string", description: "A note to Ricky in Daniel's words, if he gave one. Leave out if he only asked to send items." },
+    message: { type: "string", description: "A note to Ricky in Daniel's own words and tone, if he gave one. Fix only spelling and grammar; never rephrase or make it formal. Leave out if he only asked to send items." },
   }),
   fn("list_captures", "Things Daniel captured in Pocket: follow-ups, notes or thoughts.", {
     kind: { type: "string", enum: ["followup", "note", "thought"] },

@@ -343,7 +343,7 @@ function feedbackHtml(r) {
 // working out what you meant uses the AI, on the server.
 // If this phone's browser cannot listen, the text box works with the keyboard's mic.
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let recog = null;
+let recog = null, typing = false; // typing: he tapped the text box, so the mic stays off
 
 $("#jarvisBtn").onclick = () => {
   $("#jarvis").hidden = false;
@@ -354,6 +354,11 @@ $("#jarvisBtn").onclick = () => {
 };
 $("#jClose").onclick = () => { $("#jarvis").hidden = true; speechSynthesis.cancel(); try { playing?.stop(); } catch {} recog?.abort(); };
 $("#jTalk").onclick = () => { unlockSpeech(); SR ? talk() : $("#jText").focus(); };
+// Tapping into the text box stops listening, and nothing heard so far is sent.
+$("#jText").onfocus = () => {
+  typing = true; recog?.abort();
+  if ($("#jSays").textContent === "Listening...") $("#jSays").textContent = "Type your message.";
+};
 $("#jForm").onsubmit = (e) => {
   e.preventDefault();
   const t = $("#jText").value.trim();
@@ -372,6 +377,7 @@ function unlockSpeech() {
 
 function talk() {
   recog?.abort();
+  typing = false;
   recog = new SR();
   recog.lang = "en-US"; recog.interimResults = true; recog.continuous = false;
   let heard = "";
@@ -381,6 +387,7 @@ function talk() {
     if (e.error === "not-allowed" || e.error === "service-not-allowed") $("#jSays").textContent = "The microphone is blocked. Allow it in Settings, or type below.";
   };
   recog.onend = () => {
+    if (typing) return;
     if (heard.trim()) ask(heard.trim());
     else if ($("#jSays").textContent === "Listening...") $("#jSays").textContent = "I didn't hear anything. Tap Talk to try again.";
   };
@@ -404,7 +411,8 @@ async function ask(text) {
   loadList().then(render).catch(() => {});
   loadToday(); // he may have just added or removed a calendar event
   // He asked a question ("What are you thinking?", "delete X?"), so listen for the answer.
-  if (r.listen) SR ? talk() : $("#jText").focus();
+  // Typed the last one? Then the answer is typed too, not listened for.
+  if (r.listen) SR && !typing ? talk() : $("#jText").focus();
 }
 
 // Jarvis's own voice, from ElevenLabs via /api/speak. Resolves true once he
